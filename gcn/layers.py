@@ -186,3 +186,46 @@ class GraphConvolution(Layer):
             output += self.vars['bias']
 
         return self.act(output)
+
+class Embedding(Layer):
+    """Graph embedding layer."""
+    def __init__(self, input_dim, output_dim, placeholders, dropout=0.,
+                 sparse_inputs=False, act=tf.nn.relu, bias=False,
+                 featureless=False, **kwargs):
+        super(Embedding, self).__init__(**kwargs)
+
+        if dropout:
+            self.dropout = placeholders['dropout']
+        else:
+            self.dropout = 0.
+
+        self.act = act
+        self.sparse_inputs = sparse_inputs
+
+        # helper variable for sparse dropout
+        self.num_features_nonzero = placeholders['num_features_nonzero']
+
+        with tf.variable_scope(self.name + '_vars'):
+            self.vars['embed_mask'] = tf.ones([output_dim, output_dim],
+                                              tf.float32) - \
+                                      tf.Variable(np.identity(output_dim),
+                                                  dtype=tf.float32)
+
+        if self.logging:
+            self._log_vars()
+
+    def _call(self, inputs):
+        x = inputs
+
+        # dropout
+        if self.sparse_inputs:
+            x = sparse_dropout(x, 1-self.dropout, self.num_features_nonzero)
+        else:
+            x = tf.nn.dropout(x, 1-self.dropout)
+
+        # similarity
+        x = tf.nn.l2_normalize(x, dim=1)
+        output = tf.matmul(x, tf.transpose(x))
+        output = tf.multiply(output, self.vars['embed_mask'])
+
+        return output

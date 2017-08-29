@@ -18,3 +18,8 @@ def masked_accuracy(preds, labels, mask):
     mask /= tf.reduce_mean(mask)
     accuracy_all *= mask
     return tf.reduce_mean(accuracy_all)
+
+#
+# if __name__ == '__main__':
+#
+#

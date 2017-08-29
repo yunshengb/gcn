@@ -40,11 +40,16 @@ product = tf.multiply(matrix1, matrix2)
 reduced = tf.reduce_sum(product, [1, 3])
 reduced = tf.transpose(reduced)
 
+reduced = tf.cast(reduced, tf.float32)
+normalized = tf.nn.l2_normalize(reduced, dim=1)
+
 with tf.Session() as sess:
     print(matrix1.shape, matrix2.shape)
     result = sess.run(product)
     print(result)
     result = sess.run(reduced)
+    print(result)
+    result = sess.run(normalized)
     print(result)
 
 # matrix1 = np.array([[[0, 1, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0], \

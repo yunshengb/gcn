@@ -21,7 +21,7 @@ def sample_mask(idx, l):
     return np.array(mask, dtype=np.bool)
 
 
-def load_data(dataset_str):
+def load_data(dataset_str, embed):
     """Load data."""
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
@@ -58,6 +58,11 @@ def load_data(dataset_str):
     idx_train = range(len(y))
     idx_val = range(len(y), len(y)+500)
 
+    if embed != 0:
+        idx_test = range(len(labels))
+        idx_train = range(len(labels))
+        idx_val = range(len(labels))
+
     train_mask = sample_mask(idx_train, labels.shape[0])
     val_mask = sample_mask(idx_val, labels.shape[0])
     test_mask = sample_mask(idx_test, labels.shape[0])
@@ -69,7 +74,13 @@ def load_data(dataset_str):
     y_val[val_mask, :] = labels[val_mask, :]
     y_test[test_mask, :] = labels[test_mask, :]
 
-    return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
+    if embed == 0: # no embedding
+        return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
+    else:
+        im = np.identity(labels.shape[0])
+        features = sp.lil_matrix(im)
+        return adj, features, adj.todense(), adj.todense(), adj.todense(), \
+               train_mask, val_mask, test_mask
 
 
 def sparse_to_tuple(sparse_mx):
