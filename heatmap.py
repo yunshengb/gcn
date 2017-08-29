@@ -14,7 +14,7 @@ class Heatmap:
 		else:
 			self.col = len(self.matrix[0])
 
-	def getHeatmap(self, i_s, i_e, j_s, j_e):
+	def getHeatmap(self, i_s, i_e, j_s, j_e, name):
 		if i_s < 0 or i_e >= self.row:
 			raise ValueError("No this row")
 		if j_s < 0 or j_e >= self.col:
@@ -24,6 +24,7 @@ class Heatmap:
 
 		plt.figure()
 		ax  = sns.heatmap(new_matrix, vmin = 0.0, vmax = 1.0, cmap="YlGnBu")
+		plt.savefig("{}.png".format(name))
 		plt.show()
 
 
@@ -31,7 +32,7 @@ if __name__ == "__main__":
 	uniform_data = np.random.rand(10, 12)
 	heatmap = Heatmap(uniform_data)
 
-	heatmap.getHeatmap(0,12,0,5)
+	heatmap.getHeatmap(1,5,0,5, "test")
 
 
 
