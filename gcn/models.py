@@ -32,6 +32,8 @@ class Model(object):
         self.optimizer = None
         self.opt_op = None
 
+        self.printer = None
+
     def _build(self):
         raise NotImplementedError
 
@@ -48,7 +50,8 @@ class Model(object):
         self.outputs = self.activations[-1]
 
         # Store model variables for easy access
-        variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES, scope=self.name)
+        variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
+                                      scope=self.name)
         self.vars = {var.name: var for var in variables}
 
         # Build metrics
@@ -92,7 +95,8 @@ class MLP(Model):
         self.output_dim = placeholders['labels'].get_shape().as_list()[1]
         self.placeholders = placeholders
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
+        self.optimizer = tf.train.AdamOptimizer(
+            learning_rate=FLAGS.learning_rate)
 
         self.build()
 
@@ -102,11 +106,14 @@ class MLP(Model):
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
 
         # Cross entropy error
-        self.loss += masked_softmax_cross_entropy(self.outputs, self.placeholders['labels'],
-                                                  self.placeholders['labels_mask'])
+        self.loss += masked_softmax_cross_entropy(self.outputs,
+                                                  self.placeholders['labels'],
+                                                  self.placeholders[
+                                                      'labels_mask'])
 
     def _accuracy(self):
-        self.accuracy = masked_accuracy(self.outputs, self.placeholders['labels'],
+        self.accuracy = masked_accuracy(self.outputs,
+                                        self.placeholders['labels'],
                                         self.placeholders['labels_mask'])
 
     def _build(self):
@@ -139,7 +146,8 @@ class GCN(Model):
         self.output_dim = placeholders['labels'].get_shape().as_list()[1]
         self.placeholders = placeholders
 
-        self.optimizer = tf.train.AdamOptimizer(learning_rate=FLAGS.learning_rate)
+        self.optimizer = tf.train.AdamOptimizer(
+            learning_rate=FLAGS.learning_rate)
 
         self.build()
 
@@ -149,11 +157,19 @@ class GCN(Model):
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
 
         # Cross entropy error
-        self.loss += masked_softmax_cross_entropy(self.outputs, self.placeholders['labels'],
-                                                  self.placeholders['labels_mask'])
+        loss = masked_softmax_cross_entropy(self.outputs,
+                                            self.placeholders[
+                                                'labels'],
+                                            self.placeholders[
+                                                'labels_mask'],
+                                            model=self)
+
+        self.loss += loss
+        # self.printer = tf.Print(loss, [loss], message='@@@')
 
     def _accuracy(self):
-        self.accuracy = masked_accuracy(self.outputs, self.placeholders['labels'],
+        self.accuracy = masked_accuracy(self.outputs,
+                                        self.placeholders['labels'],
                                         self.placeholders['labels_mask'])
 
     def _build(self):
@@ -180,7 +196,8 @@ class GCN(Model):
                                          placeholders=self.placeholders,
                                          act=lambda x: x,
                                          dropout=True,
-                                         logging=self.logging))
+                                         logging=self.logging,
+                                         model=None))
         elif FLAGS.embed == 1:
             self.layers.append(Dense(input_dim=FLAGS.hidden2,
                                      output_dim=self.output_dim,

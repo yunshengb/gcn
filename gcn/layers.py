@@ -191,7 +191,7 @@ class Embedding(Layer):
     """Graph embedding layer."""
     def __init__(self, input_dim, output_dim, placeholders, dropout=0.,
                  sparse_inputs=False, act=tf.nn.relu, bias=False,
-                 featureless=False, **kwargs):
+                 featureless=False, model=None, **kwargs):
         super(Embedding, self).__init__(**kwargs)
 
         if dropout:
@@ -209,10 +209,15 @@ class Embedding(Layer):
             self.vars['embed_mask'] = tf.ones([output_dim, output_dim],
                                               tf.float32) - \
                                       tf.Variable(np.identity(output_dim),
-                                                  dtype=tf.float32)
+                                                  dtype=tf.float32,
+                                                  trainable=True) # key
 
         if self.logging:
             self._log_vars()
+
+        self.model = None
+        if model:
+            self.model = model
 
     def _call(self, inputs):
         x = inputs
@@ -227,5 +232,10 @@ class Embedding(Layer):
         x = tf.nn.l2_normalize(x, dim=1)
         output = tf.matmul(x, tf.transpose(x))
         output = tf.multiply(output, self.vars['embed_mask'])
+
+        if self.model:
+            self.model.printer = tf.Print(self.vars['embed_mask'],
+                                          [self.vars['embed_mask']],
+                                          message='embed_mask: ', summarize=2)
 
         return output
