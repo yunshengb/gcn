@@ -3,6 +3,7 @@ import pickle as pkl
 import networkx as nx
 import scipy.sparse as sp
 from scipy.sparse.linalg.eigen.arpack import eigsh
+from sklearn.preprocessing import normalize
 import sys
 
 
@@ -79,7 +80,8 @@ def load_data(dataset_str, embed):
     else:
         im = np.identity(labels.shape[0])
         features = sp.lil_matrix(im)
-        return adj, features, adj.todense(), adj.todense(), adj.todense(), \
+        normalized = normalize(adj.todense(), norm='l1')
+        return adj, features, normalized, normalized, normalized, \
                train_mask, val_mask, test_mask
 
 

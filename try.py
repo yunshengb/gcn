@@ -2,6 +2,7 @@
 
 import tensorflow as tf
 import numpy as np
+from sklearn.preprocessing import normalize
 
 '''
 Exp with mat mul for convolution.
@@ -43,14 +44,26 @@ reduced = tf.transpose(reduced)
 reduced = tf.cast(reduced, tf.float32)
 normalized = tf.nn.l2_normalize(reduced, dim=1)
 
+argmax = tf.argmax(reduced, 1)
+
+softmax = tf.nn.softmax(normalized)
+
 with tf.Session() as sess:
     print(matrix1.shape, matrix2.shape)
     result = sess.run(product)
-    print(result)
+    print('product\n', result)
     result = sess.run(reduced)
-    print(result)
+    print('reduced\n', result)
     result = sess.run(normalized)
-    print(result)
+    print('normalized\n', result)
+    result = sess.run(argmax)
+    print('argmax\n', result)
+    result = sess.run(softmax)
+    print('softmax\n', result)
+    whole = np.identity(10)
+    print('whole\n', whole)
+    print('portion\n', whole[0:4,0:4])
+    print('sklearn normalized\n', normalize(np.array([[1, 0], [1, 1]]), norm='l1'))
 
 # matrix1 = np.array([[[0, 1, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0], \
 #     [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], \
