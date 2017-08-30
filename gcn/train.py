@@ -18,7 +18,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'cora', 'Dataset string.')  # 'cora', 'citeseer', 'pubmed'
 flags.DEFINE_string('model', 'gcn', 'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 200, 'Number of epochs to train.')
+flags.DEFINE_integer('epochs', 1001, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 200, 'Number of units in hidden layer 2.')
 flags.DEFINE_integer('embed', 2, '0: No embedding; 1: Plan 1; 2: Plan 2.')
@@ -30,6 +30,11 @@ flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 # Load data
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = \
     load_data(FLAGS.dataset, FLAGS.embed)
+
+np.set_printoptions(threshold=np.nan)
+
+print(adj.todense()[0:100,0:100])
+exit(1)
 
 # Some preprocessing
 features = preprocess_features(features)
@@ -78,6 +83,8 @@ sess.run(tf.global_variables_initializer())
 
 cost_val = []
 
+saver = tf.train.Saver()
+
 # Train model
 for epoch in range(FLAGS.epochs):
 
@@ -87,11 +94,20 @@ for epoch in range(FLAGS.epochs):
     feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
     # Training step
-    outs = sess.run([model.opt_op, model.loss, model.accuracy], feed_dict=feed_dict)
+    fetches = [model.opt_op, model.loss, model.accuracy]
+    if epoch % 200 == 0:
+        fetches.append(model.printer)
+    outs = sess.run(fetches, feed_dict=feed_dict)
 
     # Validation
     cost, acc, duration = evaluate(features, support, y_val, val_mask, placeholders)
     cost_val.append(cost)
+
+    # if FLAGS.embed != 0:
+    #     eq = tf.assert_equal(y_train, y_val)
+    #     sess.run([eq], feed_dict={placeholders['labels']: y_train, placeholders['labels']: y_val})
+    #     eq = tf.assert_equal(train_mask, val_mask)
+    #     sess.run([eq], feed_dict={placeholders['labels_mask']: train_mask, placeholders['labels_mask']: val_mask})
 
     # Print results
     print("Epoch:", '%04d' % (epoch + 1), "train_loss=", "{:.5f}".format(outs[1]),
