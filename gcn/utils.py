@@ -22,8 +22,25 @@ def sample_mask(idx, l):
     return np.array(mask, dtype=np.bool)
 
 
+def load_synthetic_data():
+    adj = np.array([[0,1,1,0,0],[1,0,0,1,0],[1,0,0,1,0],[0,1,1,0,1],[0,0,0,1,
+                                                                     0]])
+    im = np.identity(adj.shape[0])
+    labels = normalize(adj + im, norm='l1')
+    features = sp.lil_matrix(im)
+    idx_test = range(len(labels))
+    idx_train = range(len(labels))
+    idx_val = range(len(labels))
+    train_mask = sample_mask(idx_train, labels.shape[0])
+    val_mask = sample_mask(idx_val, labels.shape[0])
+    test_mask = sample_mask(idx_test, labels.shape[0])
+    return adj, features, labels, labels, labels, train_mask, val_mask, test_mask
+
+
 def load_data(dataset_str, embed):
     """Load data."""
+    if dataset_str == 'syn':
+        return load_synthetic_data()
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
     for i in range(len(names)):
@@ -79,10 +96,15 @@ def load_data(dataset_str, embed):
         return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
     else:
         im = np.identity(labels.shape[0])
-        features = sp.lil_matrix(im)
-        normalized = normalize(adj.todense(), norm='l1')
-        return adj, features, normalized, normalized, normalized, \
-               train_mask, val_mask, test_mask
+        labels = adj.todense()
+        labels = labels + im
+        labels = normalize(labels, norm='l1')
+        if embed == 1 or embed == 2:
+            features = sp.lil_matrix(im)
+        elif embed == 3:
+            features = np.ones([labels.shape[0], 200])
+        return adj, features, labels, labels, labels, train_mask, val_mask, test_mask
+
 
 
 def sparse_to_tuple(sparse_mx):
@@ -162,3 +184,16 @@ def chebyshev_polynomials(adj, k):
         t_k.append(chebyshev_recurrence(t_k[-1], t_k[-2], scaled_laplacian))
 
     return sparse_to_tuple(t_k)
+
+def print_var(sess, feed_dict, var, name):
+    # Output variable.
+    var = sess.run([var], feed_dict=feed_dict)
+    assert (len(var) == 1)
+    var = var[0]
+    print(name)
+    print(var)
+    x = 0
+    # fn = 'intermediate/%s.mat' % name
+    # print('%s dumped to %s with shape %s' % (name, fn, var.shape))
+    # var.dump(fn)
+

@@ -57,9 +57,6 @@ def predict_heatmap(filename):
                 round = tokens[idx]
                 print('Round {} Probs matrix'.format(round))
                 newline = line.strip("\n")
-                if round != '1000':
-                    i += 1
-                    continue
                 new_mat = load_predict_matrix(newline)
                 if round == '1000':
                     print
@@ -84,6 +81,16 @@ def truth_heatmap(filename, norm=False):
             name += '_norm'
         new_heatmap.getHeatmap(name, 'Adjacency Matrix')
         new_heatmap.getHeatmap(name + '_annot', 'Adjacency Matrix', True)
+
+def mask_heatmap(filename, type):
+    filename = type + filename
+    mask = np.load(filename)
+    print('Mask shape', mask.shape)
+    for dim in DIMENSIONS:
+        new_heatmap = Heatmap(mask[0:dim, 0:dim])
+        name = '%s_mask_dim_%s' % (type, dim)
+        new_heatmap.getHeatmap(name, 'Mask')
+        new_heatmap.getHeatmap(name + '_annot', 'Mask', True)
 
 
 def load_predict_matrix(newline):
@@ -132,3 +139,4 @@ if __name__ == "__main__":
         "probs_0_10_20_30_31_32_33_34_35_36_37_38_39_40_50_60_70_80_90_100_200_400_600_800_1000.txt")
     truth_heatmap("adj.txt")
     # truth_heatmap("adj_norm.txt", True)
+    # mask_heatmap('_mask.mat', 'orig')

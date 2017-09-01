@@ -210,7 +210,9 @@ class Embedding(Layer):
                                               tf.float32) - \
                                       tf.Variable(np.identity(output_dim),
                                                   dtype=tf.float32,
-                                                  trainable=True) # key
+                                                  trainable=False) # key
+            self.vars['orig_mask'] = tf.Variable(tf.ones([output_dim, input_dim]),
+                                                 tf.float32)
 
         if self.logging:
             self._log_vars()
@@ -230,12 +232,16 @@ class Embedding(Layer):
 
         # similarity
         x = tf.nn.l2_normalize(x, dim=1)
-        output = tf.matmul(x, tf.transpose(x))
+        embeddings = tf.multiply(x, self.vars['orig_mask']) # trainable
+        self.embeddings = embeddings
+        output = tf.matmul(embeddings, tf.transpose(embeddings))
         output = tf.multiply(output, self.vars['embed_mask'])
+        self.output = output
 
         if self.model:
             self.model.printer = tf.Print(self.vars['embed_mask'],
                                           [self.vars['embed_mask']],
-                                          message='embed_mask: ', summarize=2)
+                                          message='embed_mask: ',
+                                          summarize=2708)
 
         return output

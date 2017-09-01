@@ -5,11 +5,11 @@ def masked_softmax_cross_entropy(preds, labels, mask, model=None):
     """Softmax cross-entropy loss with masking."""
     loss = tf.nn.softmax_cross_entropy_with_logits(logits=preds, labels=labels)
     if model:
+        model.preds = preds
         probs = tf.nn.softmax(preds)
-        model.printer = tf.Print(probs, [probs[0:100,0:100]],
-                                 message='probs:\n',
-                                 summarize=100*100)
         model.probs = probs
+        # probs = tf.multiply(probs, labels)
+        print_mat(model, probs)
     mask = tf.cast(mask, dtype=tf.float32)
     mask /= tf.reduce_mean(mask)
     loss *= mask
@@ -25,7 +25,14 @@ def masked_accuracy(preds, labels, mask):
     accuracy_all *= mask
     return tf.reduce_mean(accuracy_all)
 
-    #
-    # if __name__ == '__main__':
-    #
-    #
+
+def print_mat(model, mat):
+    # zero = tf.constant(0, dtype=tf.float32)
+    # where = tf.not_equal(mat, zero)
+    # result = tf.boolean_mask(mat, where)
+
+    result = mat[0:100,0:100]
+
+    model.printer = tf.Print(result, [result],
+                             message='result:\n',
+                             summarize=100 * 100)
