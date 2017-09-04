@@ -31,8 +31,8 @@ def print_mat(model, mat):
     # where = tf.not_equal(mat, zero)
     # result = tf.boolean_mask(mat, where)
 
-    result = mat[0:100,0:100]
+    result = mat
 
     model.printer = tf.Print(result, [result],
                              message='result:\n',
-                             summarize=100 * 100)
+                             summarize=10)

@@ -198,7 +198,7 @@ class GCN(Model):
                                          act=lambda x: x,
                                          dropout=True,
                                          logging=self.logging,
-                                         model=None))
+                                         model=self))
         elif FLAGS.embed == 1:
             self.layers.append(Dense(input_dim=FLAGS.hidden2,
                                      output_dim=self.output_dim,

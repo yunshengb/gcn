@@ -24,7 +24,7 @@ def sparse_dropout(x, keep_prob, noise_shape):
     random_tensor += tf.random_uniform(noise_shape)
     dropout_mask = tf.cast(tf.floor(random_tensor), dtype=tf.bool)
     pre_out = tf.sparse_retain(x, dropout_mask)
-    return pre_out * (1./keep_prob)
+    return pre_out * (1. / keep_prob)
 
 
 def dot(x, y, sparse=False):
@@ -84,7 +84,9 @@ class Layer(object):
 
 class Dense(Layer):
     """Dense layer."""
-    def __init__(self, input_dim, output_dim, placeholders, dropout=0., sparse_inputs=False,
+
+    def __init__(self, input_dim, output_dim, placeholders, dropout=0.,
+                 sparse_inputs=False,
                  act=tf.nn.relu, bias=False, featureless=False, **kwargs):
         super(Dense, self).__init__(**kwargs)
 
@@ -115,9 +117,9 @@ class Dense(Layer):
 
         # dropout
         if self.sparse_inputs:
-            x = sparse_dropout(x, 1-self.dropout, self.num_features_nonzero)
+            x = sparse_dropout(x, 1 - self.dropout, self.num_features_nonzero)
         else:
-            x = tf.nn.dropout(x, 1-self.dropout)
+            x = tf.nn.dropout(x, 1 - self.dropout)
 
         # transform
         output = dot(x, self.vars['weights'], sparse=self.sparse_inputs)
@@ -131,6 +133,7 @@ class Dense(Layer):
 
 class GraphConvolution(Layer):
     """Graph convolution layer."""
+
     def __init__(self, input_dim, output_dim, placeholders, dropout=0.,
                  sparse_inputs=False, act=tf.nn.relu, bias=False,
                  featureless=False, **kwargs):
@@ -153,7 +156,8 @@ class GraphConvolution(Layer):
         with tf.variable_scope(self.name + '_vars'):
             for i in range(len(self.support)):
                 self.vars['weights_' + str(i)] = glorot([input_dim, output_dim],
-                                                        name='weights_' + str(i))
+                                                        name='weights_' + str(
+                                                            i))
             if self.bias:
                 self.vars['bias'] = zeros([output_dim], name='bias')
 
@@ -165,9 +169,9 @@ class GraphConvolution(Layer):
 
         # dropout
         if self.sparse_inputs:
-            x = sparse_dropout(x, 1-self.dropout, self.num_features_nonzero)
+            x = sparse_dropout(x, 1 - self.dropout, self.num_features_nonzero)
         else:
-            x = tf.nn.dropout(x, 1-self.dropout)
+            x = tf.nn.dropout(x, 1 - self.dropout)
 
         # convolve
         supports = list()
@@ -187,8 +191,10 @@ class GraphConvolution(Layer):
 
         return self.act(output)
 
+
 class Embedding(Layer):
     """Graph embedding layer."""
+
     def __init__(self, input_dim, output_dim, placeholders, dropout=0.,
                  sparse_inputs=False, act=tf.nn.relu, bias=False,
                  featureless=False, model=None, **kwargs):
@@ -210,9 +216,10 @@ class Embedding(Layer):
                                               tf.float32) - \
                                       tf.Variable(np.identity(output_dim),
                                                   dtype=tf.float32,
-                                                  trainable=False) # key
-            self.vars['orig_mask'] = tf.Variable(tf.ones([output_dim, input_dim]),
-                                                 tf.float32)
+                                                  trainable=False)
+            self.vars['orig_mask'] = tf.Variable(
+                tf.ones([output_dim, input_dim]),
+                tf.float32)
 
         if self.logging:
             self._log_vars()
@@ -226,22 +233,23 @@ class Embedding(Layer):
 
         # dropout
         if self.sparse_inputs:
-            x = sparse_dropout(x, 1-self.dropout, self.num_features_nonzero)
+            x = sparse_dropout(x, 1 - self.dropout, self.num_features_nonzero)
         else:
-            x = tf.nn.dropout(x, 1-self.dropout)
+            x = tf.nn.dropout(x, 1 - self.dropout)
 
         # similarity
         x = tf.nn.l2_normalize(x, dim=1)
-        embeddings = tf.multiply(x, self.vars['orig_mask']) # trainable
+        embeddings = tf.multiply(x, self.vars['orig_mask'])  # trainable
         self.embeddings = embeddings
         output = tf.matmul(embeddings, tf.transpose(embeddings))
         output = tf.multiply(output, self.vars['embed_mask'])
         self.output = output
 
         if self.model:
-            self.model.printer = tf.Print(self.vars['embed_mask'],
-                                          [self.vars['embed_mask']],
-                                          message='embed_mask: ',
-                                          summarize=2708)
+            var = output
+            self.model.printer = tf.Print(var,
+                                          [var],
+                                          message='var: ',
+                                          summarize=100)
 
         return output

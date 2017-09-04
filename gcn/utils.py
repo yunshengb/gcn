@@ -97,7 +97,7 @@ def load_data(dataset_str, embed):
     else:
         im = np.identity(labels.shape[0])
         labels = adj.todense()
-        labels = labels + im
+        # labels = labels + im
         labels = normalize(labels, norm='l1')
         if embed == 1 or embed == 2:
             features = sp.lil_matrix(im)
@@ -185,15 +185,15 @@ def chebyshev_polynomials(adj, k):
 
     return sparse_to_tuple(t_k)
 
-def print_var(sess, feed_dict, var, name):
+def print_var(sess, feed_dict, var, name, save=False):
     # Output variable.
     var = sess.run([var], feed_dict=feed_dict)
     assert (len(var) == 1)
     var = var[0]
     print(name)
     print(var)
-    x = 0
-    # fn = 'intermediate/%s.mat' % name
-    # print('%s dumped to %s with shape %s' % (name, fn, var.shape))
-    # var.dump(fn)
+    if save:
+        fn = 'intermediate/%s.npy' % name
+        print('%s dumped to %s with shape %s' % (name, fn, var.shape))
+        np.save(fn, var)
 
