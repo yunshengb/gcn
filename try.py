@@ -48,6 +48,10 @@ argmax = tf.argmax(reduced, 1)
 
 softmax = tf.nn.softmax(normalized)
 
+truth = tf.constant([[0.5,0.5],[0,0],[0,0],[0,0],[0,0],[0,0]])
+
+loss = tf.nn.softmax_cross_entropy_with_logits(logits=normalized, labels=truth)
+
 with tf.Session() as sess:
     print(matrix1.shape, matrix2.shape)
     result = sess.run(product)
@@ -60,6 +64,8 @@ with tf.Session() as sess:
     print('argmax\n', result)
     result = sess.run(softmax)
     print('softmax\n', result)
+    result = sess.run(loss)
+    print('loss\n', result)
     whole = np.identity(10)
     print('whole\n', whole)
     print('portion\n', whole[0:4,0:4])
@@ -74,3 +80,15 @@ with tf.Session() as sess:
 # matrix2 = np.array([[1, 2, 3, 4, 5, 6], [7, 8, 9, 10, 11, 12]]).reshape((2, 6, 1))
 # print(matrix1*matrix2)
 
+
+# import numpy as np
+# import tensorflow as tf
+# input = np.array([[1,0,3,5,0,8,6], [0,0,1,1,1,1,1]])
+# X = tf.placeholder(tf.float32,[2,7])
+# zeros = tf.cast(tf.zeros_like(X),dtype=tf.bool)
+# ones = tf.cast(tf.ones_like(X),dtype=tf.bool)
+# loc = tf.where(input!=0,ones,zeros)
+# result=tf.boolean_mask(input,loc)
+# with tf.Session() as sess:
+#  out = sess.run([loc],feed_dict={X:input})
+#  print (np.array(out))

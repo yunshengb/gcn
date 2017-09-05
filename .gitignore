@@ -98,3 +98,7 @@ ENV/
 .ropeproject
 
 *.pickle
+
+*.mat
+
+*.npy
