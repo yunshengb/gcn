@@ -2,64 +2,75 @@ import numpy as np
 from utils import *
 from log_reg_model import *
 from sklearn.model_selection import train_test_split
+import tensorflow as tf
 
 
-def main():
-	dataset = "cora"
-	print('Python 3 please!')
+def run_dataset(dataset):
+    print('Python 3 please!')
+    print('Load embeddings')
+    embeddings = ['gcn_cora_emb.npy','node2vec_cora_emb.npy']
+    for embedding in embeddings:
+        analyze_embedding(embedding)
 
-	print('Load embeddings')
-	gcn_embed = np.load('gcn_cora_emb.npy')
-	print('gcn_embed',gcn_embed.shape)
-	node2vec_embed = np.load('node2vec_cora_emb.npy')
-	print('node2vec_embed', node2vec_embed.shape)
+def analyze_embedding(embedding):
+    embed = np.load(embedding)
+    print ("*" * 10)
+    print('Processing file ', embedding)
+    print('Load ground-truths labels for cora')
+    adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask = load_data(dataset, 0)
+    print('labels', y_labels.shape)
+    print('Load features and append to embeddings')
+    print('features', features.shape)
+    data = np.concatenate((embed, features.toarray()), axis=1)
+    print('data', data.shape)
+    
+    print('Perform logistic regression')
+    X_train = []
+    y_train = []
+    for i in range(len(train_mask)):
+        if train_mask[i]:
+            X_train.append(data[i])
+            y_train.append(y_labels[i])
 
-	print('Load ground-truths labels for cora')
-	adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask= load_data(dataset,0)
-	print('labels', y_train.shape)
-	print('Load features and append to embeddings')
-	print('features', features.shape)
+    for i in range(len(val_mask)):
+        if val_mask[i]:
+            X_train.append(data[i])
+            y_train.append(y_val[i])
 
-	gcn_data = np.concatenate((gcn_embed, features.toarray()), axis=1)
-	print ('gcn_data', gcn_data.shape)
-	node2vec_data = np.concatenate((node2vec_embed, features.toarray()), axis=1)
-	print ('node2vec_data', node2vec_data.shape)
+    X_test = []
+    y_test = []
 
-	print('Perform logistic regression')
-	labels = y_train
+    for i in range(len(test_mask)):
+        if test_mask[i]:
+            X_test.append(data[i])
+            y_test.append(y_truth[i])
 
-	# X_train, X_test, y_train, y_test = train_test_split(gcn_data, label, test_size=0.33, random_state=42)
+    X_train = np.asarray(X_train)
+    y_train = np.asarray(y_train)
+    X_test = np.asarray(X_test)
+    y_test = np.asarray(y_test)
 
-	length = gcn_data.shape[0]
-	X_train = gcn_data[:length*3/4,:]
-	X_test = gcn_data[length*3/4:,:]
-	y_train = labels[:length*3/4,:]
-	y_test = labels[length*3/4:,:]
-	print (y_val[-100:])
-	exit(1)
+    n_epochs = 200
+    learning_rate = 0.01
 
-	print(y_train[:20])
-	print (y_test[:20])
-	exit(1)
+    lr = LogisticRegression(input=X_train, label=y_train, n_in=X_train.shape[1], n_out=y_train.shape[1])
+    for epoch in range(n_epochs):
+        lr.train(lr=learning_rate, L2_reg = 1.0)
+        cost = lr.negative_log_likelihood()
+        if epoch % 20 == 0:
+            print('Training epoch %d, cost is %f' % (epoch, cost))
+        learning_rate *= 0.95
 
-	n_epochs = 200
-	learning_rate = 0.01
-
-	lr = LogisticRegression(input=X_train, label=y_train, n_in=1633, n_out=7)
-	for epoch in xrange(n_epochs):
-		lr.train(lr=learning_rate)
-		cost = lr.negative_log_likelihood()
-		if epoch % 20 == 0:
-			print ('Training epoch %d, cost is %f' % (epoch, cost))
-		learning_rate *= 0.95
-
-	print('Result')
-	y_pred = lr.predict(X_test)
-	print (y_pred[:20])
-	print ("*" * 20)
-	print (y_test[:20])
-
-
+    print('Result')
+    y_pred = lr.predict(X_test)
+    correct_prediction = tf.equal(tf.argmax(y_pred, 1), tf.argmax(y_test, 1))
+    accuracy_all = tf.cast(correct_prediction, tf.float32)
+    sess = tf.Session()
+    acc_result = sess.run(accuracy_all)
+    acc = sum(acc_result)/len(acc_result)
+    print(acc)
+    
 
 if __name__ == '__main__':
-	main()
+    dataset = "cora"
+    run_dataset(dataset)
