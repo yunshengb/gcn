@@ -20,7 +20,7 @@ flags.DEFINE_string('dataset', 'cora', 'Dataset string.')  # 'cora','citeseer',
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 1000, 'Number of epochs to train.')
+flags.DEFINE_integer('epochs', 1001, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 200, 'Number of units in hidden layer 2.')
 flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2|3.')
@@ -34,13 +34,15 @@ flags.DEFINE_integer('early_stopping', 10,
                      'Tolerance for early stopping (# of epochs).')
 flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 
-# PRINT_EPOCHES = [0, 10, 20, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 50,
-#                  60, 70, 80, 90, 100, 200, 400, 600, 800, 1000]
-PRINT_EPOCHES = [0]
+PRINT_EPOCHES = [0, 10, 20, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 50,
+                 60, 70, 80, 90, 100, 200, 400, 600, 800, 1000]
+# PRINT_EPOCHES = [0]
 
 # Load data
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = \
     load_data(FLAGS.dataset, FLAGS.embed)
+
+f = y_train.diagonal()
 
 # name = 'y_train'
 # fn = '%s.npy' % name
@@ -110,28 +112,26 @@ for epoch in range(FLAGS.epochs):
     # Construct feed dictionary
     feed_dict = construct_feed_dict(features, support, y_train, train_mask,
                                     placeholders)
-    feed_dict.update({placeholders['dropout']: FLAGS.dropout})
+    # feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
-    if False:
+    if epoch in PRINT_EPOCHES:
         print()
         # print_var(sess, feed_dict, model.activations[0],
         #           'input')
         # print_var(sess, feed_dict, model.activations[1],
         #           'output of cv1')
-        print_var(sess, feed_dict, model.layers[-1].vars['embed_mask'],
-                  'embed_mask')
         # print_var(sess, feed_dict, model.layers[-1].embeddings, 'embeddings')
-        print_var(sess, feed_dict, model.layers[-1].output, 'output')
-        print_var(sess, feed_dict, model.preds, 'preds')
-        print_var(sess, feed_dict, model.probs, 'probs')
-    if epoch == FLAGS.epochs - 1:
-        print_var(sess, feed_dict, model.layers[-1].embeddings, 'cora_embed',
+        # print_var(sess, feed_dict, model.layers[-1].output, 'output')
+        # print_var(sess, feed_dict, model.preds, 'preds')
+        # print_var(sess, feed_dict, model.probs, 'probs')
+        print_var(sess, feed_dict, model.layers[-1].embeddings,
+                  'gcn_cora_emb_%s' % epoch,
                   True)
 
     # Training step
     fetches = [model.opt_op, model.loss, model.accuracy]
-    if epoch in PRINT_EPOCHES:
-        fetches.append(model.printer)
+    # if epoch in PRINT_EPOCHES:
+    #     fetches.append(model.printer)
     outs = sess.run(fetches, feed_dict=feed_dict)
 
     # Validation

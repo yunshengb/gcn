@@ -4,9 +4,6 @@ import tensorflow as tf
 import numpy as np
 from sklearn.preprocessing import normalize
 
-'''
-Exp with mat mul for convolution.
-'''
 
 matrix1 = tf.constant([[[[0, 1, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0], \
     [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], \
@@ -48,7 +45,10 @@ argmax = tf.argmax(reduced, 1)
 
 softmax = tf.nn.softmax(normalized)
 
-truth = tf.constant([[0.5,0.5],[0,0],[0,0],[0,0],[0,0],[0,0]])
+truth = tf.constant([[0.5,0.5],[1.0,0],[0,0],[0,0],[0,0],[0,0]])
+
+normalized = tf.constant([[1.0,1.0],[0,-999999999999999999],[0,0],[0,0],[0,
+                                                                         0],[0,0]])
 
 loss = tf.nn.softmax_cross_entropy_with_logits(logits=normalized, labels=truth)
 
@@ -66,10 +66,10 @@ with tf.Session() as sess:
     print('softmax\n', result)
     result = sess.run(loss)
     print('loss\n', result)
-    whole = np.identity(10)
-    print('whole\n', whole)
-    print('portion\n', whole[0:4,0:4])
-    print('sklearn normalized\n', normalize(np.array([[1, 0], [1, 1]]), norm='l1'))
+    # whole = np.identity(10)
+    # print('whole\n', whole)
+    # print('portion\n', whole[0:4,0:4])
+    # print('sklearn normalized\n', normalize(np.array([[1, 0], [1, 1]]), norm='l1'))
 
 # matrix1 = np.array([[[0, 1, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0], \
 #     [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], [0, 0, 0, 0, 0, 0], \

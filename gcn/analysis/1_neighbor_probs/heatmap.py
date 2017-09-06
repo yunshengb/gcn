@@ -84,7 +84,7 @@ def truth_heatmap(filename):
 def pickle_mat_heatmap(filename, type, title):
     mask = np.load(filename)
     print(title)
-    print('Mask shape', mask.shape)
+    print('Shape', mask.shape)
     for dim in DIMENSIONS:
         new_heatmap = Heatmap(mask[0:dim, 0:dim])
         name = type + '_dim_%s' % (dim)
@@ -133,10 +133,10 @@ if __name__ == "__main__":
     # heatmap = Heatmap(uniform_data)
     # heatmap.getHeatmap(0,99,0,99, "test")
 
-    # os.system('rm -rf graph/ && mkdir graph/')
-    # predict_heatmap(
-    #     "probs_0_10_20_30_31_32_33_34_35_36_37_38_39_40_50_60_70_80_90_100_200_400_600_800_1000.txt")
-    # truth_heatmap("adj.txt")
-    pickle_mat_heatmap("adj_norm.mat", 'adj_norm', 'Adjacency Matrix '
+    os.system('rm -rf graph/ && mkdir graph/')
+    predict_heatmap(
+        "probs_0_10_20_30_31_32_33_34_35_36_37_38_39_40_50_60_70_80_90_100_200_400_600_800_1000.txt")
+    truth_heatmap("adj.txt")
+    pickle_mat_heatmap("adj_norm.npy", 'adj_norm', 'Adjacency Matrix '
                                                    'Normalized')
     # mask_heatmap('_mask.mat', 'orig')
