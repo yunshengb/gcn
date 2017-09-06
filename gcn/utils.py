@@ -5,7 +5,9 @@ import scipy.sparse as sp
 from scipy.sparse.linalg.eigen.arpack import eigsh
 from sklearn.preprocessing import normalize
 import sys
+import os
 
+current_folder = os.path.dirname(os.path.realpath(__file__))
 
 def parse_index_file(filename):
     """Parse index file."""
@@ -44,14 +46,14 @@ def load_data(dataset_str, embed):
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
     for i in range(len(names)):
-        with open("%s/../data/ind.{}.{}".format(dataset_str, names[i]) % c, 'rb') as f:
+        with open("{}/data/ind.{}.{}".format(current_folder,dataset_str, names[i]), 'rb') as f:
             if sys.version_info > (3, 0):
                 objects.append(pkl.load(f, encoding='latin1'))
             else:
                 objects.append(pkl.load(f))
 
     x, y, tx, ty, allx, ally, graph = tuple(objects)
-    test_idx_reorder = parse_index_file("data/ind.{}.test.index".format(dataset_str))
+    test_idx_reorder = parse_index_file("{}/data/ind.{}.test.index".format(current_folder,dataset_str))
     test_idx_range = np.sort(test_idx_reorder)
 
     if dataset_str == 'citeseer':

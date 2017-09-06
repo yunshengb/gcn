@@ -148,7 +148,7 @@ class GCN(Model):
 
         self.optimizer = tf.train.AdamOptimizer(
             learning_rate=FLAGS.learning_rate)
-\
+
         self.build()
 
     def _loss(self):

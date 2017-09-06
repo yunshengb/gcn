@@ -1,14 +1,16 @@
 import numpy as np
-from utils import *
 from log_reg_model import *
-from sklearn.model_selection import train_test_split
 import tensorflow as tf
+import sys
+from gcn.utils import *
 
+sys.path.insert(0, '../../')
 
 def run_dataset(dataset):
     print('Python 3 please!')
     print('Load embeddings')
-    embeddings = ['gcn_cora_emb.npy','node2vec_cora_emb.npy']
+    # embeddings = ['gcn_cora_emb.npy','gcn_cora_emb_0905.npy','node2vec_cora_emb.npy','node2vec_cora_emb_window_1.npy']
+    embeddings = ['node2vec_cora_emb_window_1.npy']
     for embedding in embeddings:
         analyze_embedding(embedding)
 
