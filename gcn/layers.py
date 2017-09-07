@@ -211,17 +211,8 @@ class Embedding(Layer):
         # helper variable for sparse dropout
         self.num_features_nonzero = placeholders['num_features_nonzero']
 
-        inf_diagonal = np.zeros((output_dim, output_dim))
-        np.fill_diagonal(inf_diagonal, 999999999999999999)
+        self.sims_mask = placeholders['sims_mask']
         with tf.variable_scope(self.name + '_vars'):
-            self.vars['sims_mask'] = tf.ones([output_dim, output_dim],
-                                              tf.float32) - \
-                                      tf.Variable(np.identity(output_dim),
-                                                  dtype=tf.float32,
-                                                  trainable=False) - \
-                                      tf.Variable(inf_diagonal,
-                                                  dtype=tf.float32,
-                                                  trainable=False)
             self.vars['orig_mask'] = tf.Variable(
                 tf.ones([output_dim, input_dim]),
                 tf.float32)
@@ -244,12 +235,12 @@ class Embedding(Layer):
 
         # similarity
         # x = tf.nn.l2_normalize(x, dim=1)
-        embeddings = tf.multiply(x, self.vars['orig_mask'])  # trainable
+        # embeddings = tf.multiply(x, self.vars['orig_mask'])  # trainable
         # embeddings = tf.nn.l2_normalize(embeddings, dim=1)
         # embeddings = x
-        self.embeddings = embeddings
-        output = tf.matmul(embeddings, tf.transpose(embeddings))
-        output = tf.multiply(output, self.vars['sims_mask'])
+        self.embeddings = x
+        output = tf.matmul(self.embeddings, tf.transpose(self.embeddings))
+        output = tf.multiply(output, self.sims_mask)
         self.output = output
 
         if self.model:

@@ -102,3 +102,7 @@ ENV/
 *.mat
 
 *.npy
+
+*.tar.gz
+
+events.out.tfevents.*
