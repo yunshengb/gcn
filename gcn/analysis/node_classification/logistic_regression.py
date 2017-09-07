@@ -1,32 +1,64 @@
 import numpy as np
 from log_reg_model import *
 import tensorflow as tf
-import sys
 from gcn.utils import *
+from sklearn.metrics import f1_score
+from sklearn.linear_model import LogisticRegression
+import glob,os,re,sys,collections
+# import matplotlib.pyplot as plt
 
-sys.path.insert(0, '../../')
+current_folder = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.join(current_folder, "../.."))
+folder = "npy_files/"
+current_folder = os.path.join(current_folder, folder)
 
 def run_dataset(dataset):
     print('Python 3 please!')
     print('Load embeddings')
-    # embeddings = ['gcn_cora_emb.npy','gcn_cora_emb_0905.npy','node2vec_cora_emb.npy','node2vec_cora_emb_window_1.npy']
-    embeddings = ['node2vec_cora_emb_window_1.npy']
-    for embedding in embeddings:
-        analyze_embedding(embedding)
 
-def analyze_embedding(embedding):
+    eval = collections.defaultdict(list)
+    for embedding in sort_nicely(glob.glob(os.path.join(current_folder, "*.npy"))):
+        # % s_emb_iter_ % s_p_ % s_q_ % s_walk_ % s_win_ % s.npy
+
+        acc, f1 = analyze_embedding(embedding, dataset)
+
+        # gen_eval_input(eval, acc, f1, embedding)
+
+    return eval
+
+def gen_eval_input(eval, acc, f1, embedding):
+    embedding = embedding.split("/")[-1]
+    name_tokens = embedding[:-4].split("_")
+    # key: (iter, p, q, num_walks, window_size)
+    key = []
+    for idx, token in enumerate(name_tokens):
+        if token in ["iter", "p", "q", "walk", "win"]:
+            key.append(name_tokens[idx + 1])
+
+    assert (len(key) == 5)
+    eval[tuple(key)] = [acc, f1]
+
+
+def draw_curve(eval, var):
+
+    pass
+
+
+
+def analyze_embedding(embedding, dataset):
     embed = np.load(embedding)
-    print ("*" * 10)
-    print('Processing file ', embedding)
-    print('Load ground-truths labels for cora')
+    print ("*" * 50)
+    print('Processing file ', embedding.split("/")[-1])
+    #print ('embed', embed.shape)
+    #print('Load ground-truths labels for {}'.format(dataset))
     adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask = load_data(dataset, 0)
-    print('labels', y_labels.shape)
-    print('Load features and append to embeddings')
-    print('features', features.shape)
+    #print('labels', y_labels.shape)
+    #print('Load features and append to embeddings')
+    #print('features', features.shape)
     data = np.concatenate((embed, features.toarray()), axis=1)
-    print('data', data.shape)
+    #print('data', data.shape)
     
-    print('Perform logistic regression')
+    #print('Perform logistic regression')
     X_train = []
     y_train = []
     for i in range(len(train_mask)):
@@ -58,21 +90,66 @@ def analyze_embedding(embedding):
     lr = LogisticRegression(input=X_train, label=y_train, n_in=X_train.shape[1], n_out=y_train.shape[1])
     for epoch in range(n_epochs):
         lr.train(lr=learning_rate, L2_reg = 1.0)
-        cost = lr.negative_log_likelihood()
-        if epoch % 20 == 0:
-            print('Training epoch %d, cost is %f' % (epoch, cost))
+        # cost = lr.negative_log_likelihood()
+        # if epoch % 20 == 0:
+        #     print('Training epoch %d, cost is %f' % (epoch, cost))
         learning_rate *= 0.95
 
     print('Result')
     y_pred = lr.predict(X_test)
+    acc = cal_accuracy(y_pred, y_test)
+    f1 = cal_macro_F1(y_pred, y_test)
+
+    return acc, f1
+
+def cal_accuracy(y_pred, y_test):
     correct_prediction = tf.equal(tf.argmax(y_pred, 1), tf.argmax(y_test, 1))
     accuracy_all = tf.cast(correct_prediction, tf.float32)
     sess = tf.Session()
     acc_result = sess.run(accuracy_all)
     acc = sum(acc_result)/len(acc_result)
-    print(acc)
-    
+    print('acc = ',acc)
+    return acc
+
+def cal_macro_F1(y_pred, y_test):
+    y_pred_res = []
+    for entry in y_pred:
+        new_entry = [0] * len(entry)
+        index = list(entry).index(max(entry))
+        new_entry[index] = 1
+        y_pred_res.append(new_entry)
+    y_pred_res = np.asarray(y_pred_res)
+
+    f1 = f1_score(y_pred_res, y_test, average = 'macro')
+    print ('f1_score = ', f1)
+    return f1
+
+'''
+Code below is from 
+https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically.
+'''
+
+def sort_nicely(l):
+    """ Sort the given list in the way that humans expect.
+    """
+    def tryint(s):
+        try:
+            return int(s)
+        except:
+            return s
+    def alphanum_key(s):
+        """ Turn a string into a list of string and number chunks.
+            "z23a" -> ["z", 23, "a"]
+        """
+        return [tryint(c) for c in re.split('([0-9]+)', s)]
+    l.sort(key=alphanum_key)
+    return l
+
+
+
 
 if __name__ == '__main__':
     dataset = "cora"
-    run_dataset(dataset)
+    eval = run_dataset(dataset)
+    print(eval)
+    #draw_curve(eval, "iter")
