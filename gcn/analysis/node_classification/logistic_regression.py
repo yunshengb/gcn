@@ -1,10 +1,10 @@
-import numpy as np
-from log_reg_model import *
+# from log_reg_model import *
 import tensorflow as tf
 from gcn.utils import *
-from sklearn.metrics import f1_score
+from sklearn.metrics import f1_score,accuracy_score
 from sklearn.linear_model import LogisticRegression
 import glob,os,re,sys,collections
+import numpy as np
 # import matplotlib.pyplot as plt
 
 current_folder = os.path.dirname(os.path.realpath(__file__))
@@ -15,15 +15,10 @@ current_folder = os.path.join(current_folder, folder)
 def run_dataset(dataset):
     print('Python 3 please!')
     print('Load embeddings')
-
     eval = collections.defaultdict(list)
     for embedding in sort_nicely(glob.glob(os.path.join(current_folder, "*.npy"))):
-        # % s_emb_iter_ % s_p_ % s_q_ % s_walk_ % s_win_ % s.npy
-
         acc, f1 = analyze_embedding(embedding, dataset)
-
         # gen_eval_input(eval, acc, f1, embedding)
-
     return eval
 
 def gen_eval_input(eval, acc, f1, embedding):
@@ -38,27 +33,20 @@ def gen_eval_input(eval, acc, f1, embedding):
     assert (len(key) == 5)
     eval[tuple(key)] = [acc, f1]
 
-
 def draw_curve(eval, var):
-
     pass
-
-
 
 def analyze_embedding(embedding, dataset):
     embed = np.load(embedding)
     print ("*" * 50)
     print('Processing file ', embedding.split("/")[-1])
-    #print ('embed', embed.shape)
-    #print('Load ground-truths labels for {}'.format(dataset))
     adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask = load_data(dataset, 0)
-    #print('labels', y_labels.shape)
-    #print('Load features and append to embeddings')
-    #print('features', features.shape)
+    X_train, y_train, X_test, y_test = split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, test_mask)
+    acc, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
+    return acc, f1
+
+def split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, test_mask):
     data = np.concatenate((embed, features.toarray()), axis=1)
-    #print('data', data.shape)
-    
-    #print('Perform logistic regression')
     X_train = []
     y_train = []
     for i in range(len(train_mask)):
@@ -84,10 +72,34 @@ def analyze_embedding(embedding, dataset):
     X_test = np.asarray(X_test)
     y_test = np.asarray(y_test)
 
+    return X_train, y_train, X_test, y_test
+
+def run_model_sklearn(X_train, y_train, X_test, y_test):
+    y_train = process_y(y_train)
+    y_test = process_y(y_test)
+    lr = LogisticRegression(multi_class= 'multinomial', solver = 'newton-cg')
+    lr.fit(X_train, y_train)
+    y_pred = lr.predict(X_test)
+    print('Result')
+    acc = accuracy_score(y_test, y_pred)
+    print ('acc = ', acc)
+    f1 = f1_score(y_test, y_pred, average='macro')
+    print('f1_score = ', f1)
+    return acc, f1
+
+def process_y(y_data):
+    y_res = []
+    for entry in y_data:
+        index = list(entry).index(max(entry))
+        y_res.append(index)
+    y_res = np.asarray(y_res)
+    return y_res
+
+
+def run_model(X_train, y_train, X_test, y_test):
+    lr = LogisticRegression(input=X_train, label=y_train, n_in=X_train.shape[1], n_out=y_train.shape[1])
     n_epochs = 200
     learning_rate = 0.01
-
-    lr = LogisticRegression(input=X_train, label=y_train, n_in=X_train.shape[1], n_out=y_train.shape[1])
     for epoch in range(n_epochs):
         lr.train(lr=learning_rate, L2_reg = 1.0)
         # cost = lr.negative_log_likelihood()
@@ -144,9 +156,6 @@ def sort_nicely(l):
         return [tryint(c) for c in re.split('([0-9]+)', s)]
     l.sort(key=alphanum_key)
     return l
-
-
-
 
 if __name__ == '__main__':
     dataset = "cora"
