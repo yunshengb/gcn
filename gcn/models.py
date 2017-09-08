@@ -166,6 +166,7 @@ class GCN(Model):
 
         self.loss += loss
         # self.printer = tf.Print(loss, [loss], message='@@@')
+        tf.summary.scalar('cross_entropy', self.loss)
 
     def _accuracy(self):
         self.accuracy = masked_accuracy(self.outputs,
