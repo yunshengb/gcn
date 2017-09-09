@@ -10,10 +10,6 @@ import matplotlib.pyplot as plt
 c_folder = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(c_folder, "../.."))
 
-
-# folder = "npy_files/"
-# c_folder = os.path.join(c_folder, folder)
-
 class Data_engine:
     def __init__(self,dataset):
         self.dataset = dataset
@@ -23,7 +19,6 @@ class Data_engine:
             self.pre_draw = pre_draw_blog
     def run(self,model):
         self.eval = {**self.eval, **self.run_func(model)}
-
     def draw(self):
         data = self.pre_draw(self.eval)
         for folder in data:
@@ -41,6 +36,7 @@ class Data_engine:
             plt.plot(xs, accs)
             plt.legend(['f1', 'acc'], loc='upper right')
             plt.savefig(folder + '.png')
+
             plt.show()
 
 def pre_draw_blog(eval):
@@ -51,8 +47,6 @@ def pre_draw_blog(eval):
             x = int(file_name.split('.')[0].split("_")[-1])
             data[folder].append((x,eval[(folder,file)]))
     return data
-
-
 def run_blog(model):
     print("Load Data")
     labels = np.load(os.path.join(c_folder, "blog/data/blog_labels.npy"))
@@ -77,11 +71,51 @@ def run_blog(model):
             acc, f1 = run_one_file(embedding, labels)
             eval[("node2vec",file)] = [acc,f1]
     return eval
-
 def run_one_file(embedding, labels):
     X_train, X_test, y_train, y_test = train_test_split(embedding, labels)
     acc, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
     return acc, f1
+
+def run_model_sklearn(X_train, y_train, X_test, y_test):
+    if len(y_train[0]) > 1:
+        y_train = process_y(y_train)
+    if len(y_test[0]) > 1:
+        y_test = process_y(y_test)
+    lr = LogisticRegression(multi_class= 'ovr', solver = 'liblinear')
+    lr.fit(X_train, y_train)
+    y_pred = lr.predict(X_test)
+    print('Result')
+    acc = accuracy_score(y_test, y_pred)
+    print ('acc = ', acc)
+    f1 = f1_score(y_test, y_pred, average='macro')
+    print('f1_score = ', f1)
+    return acc, f1
+def process_y(y_data):
+    y_res = []
+    for entry in y_data:
+        if max(entry) == 0.0:
+            print(entry)
+            y_res.append(len(entry))
+        else:
+            index = list(entry).index(max(entry))
+            y_res.append(index)
+    y_res = np.asarray(y_res)
+    return y_res
+def sort_nicely(l):
+    """ Sort the given list in the way that humans expect.
+    """
+    def tryint(s):
+        try:
+            return int(s)
+        except:
+            return s
+    def alphanum_key(s):
+        """ Turn a string into a list of string and number chunks.
+            "z23a" -> ["z", 23, "a"]
+        """
+        return [tryint(c) for c in re.split('([0-9]+)', s)]
+    l.sort(key=alphanum_key)
+    return l
 
 def run_dataset(dataset):
     print('Python 3 please!')
@@ -89,7 +123,6 @@ def run_dataset(dataset):
     for embedding in sort_nicely(glob.glob(os.path.join(c_folder + "/npy_files", "*.npy"))):
         acc, f1 = analyze_embedding(embedding, dataset)
     return
-
 def gen_eval_input(eval, acc, f1, embedding):
     embedding = embedding.split("/")[-1]
     name_tokens = embedding[:-4].split("_")
@@ -101,7 +134,6 @@ def gen_eval_input(eval, acc, f1, embedding):
 
     assert (len(key) == 5)
     eval[tuple(key)] = [acc, f1]
-
 def analyze_embedding(embedding, dataset):
     embed = np.load(embedding)
     print ("*" * 50)
@@ -110,7 +142,6 @@ def analyze_embedding(embedding, dataset):
     X_train, y_train, X_test, y_test = split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, test_mask)
     acc, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
     return acc, f1
-
 def split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, test_mask):
     data = np.concatenate((embed, features.toarray()), axis=1)
     X_train = []
@@ -138,34 +169,6 @@ def split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, t
     y_test = np.asarray(y_test)
 
     return X_train, y_train, X_test, y_test
-
-def run_model_sklearn(X_train, y_train, X_test, y_test):
-    if len(y_train[0]) > 1:
-        y_train = process_y(y_train)
-    if len(y_test[0]) > 1:
-        y_test = process_y(y_test)
-    lr = LogisticRegression(multi_class= 'ovr', solver = 'liblinear')
-    lr.fit(X_train, y_train)
-    y_pred = lr.predict(X_test)
-    print('Result')
-    acc = accuracy_score(y_test, y_pred)
-    print ('acc = ', acc)
-    f1 = f1_score(y_test, y_pred, average='macro')
-    print('f1_score = ', f1)
-    return acc, f1
-
-def process_y(y_data):
-    y_res = []
-    for entry in y_data:
-        if max(entry) == 0.0:
-            print(entry)
-            y_res.append(len(entry))
-        else:
-            index = list(entry).index(max(entry))
-            y_res.append(index)
-    y_res = np.asarray(y_res)
-    return y_res
-
 
 '''
 def run_model(X_train, y_train, X_test, y_test):
@@ -213,24 +216,8 @@ Code below is from
 https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically.
 '''
 
-def sort_nicely(l):
-    """ Sort the given list in the way that humans expect.
-    """
-    def tryint(s):
-        try:
-            return int(s)
-        except:
-            return s
-    def alphanum_key(s):
-        """ Turn a string into a list of string and number chunks.
-            "z23a" -> ["z", 23, "a"]
-        """
-        return [tryint(c) for c in re.split('([0-9]+)', s)]
-    l.sort(key=alphanum_key)
-    return l
-
 if __name__ == '__main__':
     data_engine = Data_engine("blog")
-    data_engine.run("gcn")
+    data_engine.run("node2vec")
     # data_engine.run("node2vec")
-    data_engine.draw()
+    #data_engine.draw()
