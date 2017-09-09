@@ -4,17 +4,26 @@ from logistic_regression import *
 current_folder = os.path.dirname(os.path.realpath(__file__))
 
 def main():
-    #gen_iter()
+    gen_node2vec()
     run_dataset("cora")
 
-def gen_iter():
+def gen_node2vec():
+    #
+    # for i in range(1, 51):
+    #     if i == 1 or i%10 == 0:
+    #         execute("python2.7 {}/../../../../node2vec/src/main.py --iter={}".format(current_folder, str(i)))
+    # execute("rm -rfv npy_files/*")
+    # for file in glob.glob("{}/../../../../node2vec/emb/*.npy".format(current_folder)):
+    #     execute("mv {} {}/npy_files/ ".format(file, current_folder))
 
     for i in range(1, 51):
         if i == 1 or i%10 == 0:
-            execute("python2.7 {}/../../../../node2vec/src/main.py --iter={}".format(current_folder, str(i)))
+            execute("python2.7 {}/../../../../node2vec/src/main.py --window-size={}".format(current_folder, str(i)))
     execute("rm -rfv npy_files/*")
     for file in glob.glob("{}/../../../../node2vec/emb/*.npy".format(current_folder)):
         execute("mv {} {}/npy_files/ ".format(file, current_folder))
+
+
 
 def execute(cmd):
     print('@@@', cmd)

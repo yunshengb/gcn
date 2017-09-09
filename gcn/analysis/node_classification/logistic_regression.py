@@ -1,25 +1,94 @@
-# from log_reg_model import *
 import tensorflow as tf
 from gcn.utils import *
 from sklearn.metrics import f1_score,accuracy_score
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import train_test_split
 import glob,os,re,sys,collections
 import numpy as np
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 
-current_folder = os.path.dirname(os.path.realpath(__file__))
-sys.path.insert(0, os.path.join(current_folder, "../.."))
-folder = "npy_files/"
-current_folder = os.path.join(current_folder, folder)
+c_folder = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, os.path.join(c_folder, "../.."))
+
+
+# folder = "npy_files/"
+# c_folder = os.path.join(c_folder, folder)
+
+class Data_engine:
+    def __init__(self,dataset):
+        self.dataset = dataset
+        self.eval = {}
+        if dataset == "blog":
+            self.run_func = run_blog
+            self.pre_draw = pre_draw_blog
+    def run(self,model):
+        self.eval = {**self.eval, **self.run_func(model)}
+
+    def draw(self):
+        data = self.pre_draw(self.eval)
+        for folder in data:
+            accs = []
+            f1s = []
+            xs = []
+
+            for x, (acc,f1) in data[folder]:
+                accs.append(acc)
+                f1s.append(f1)
+                xs.append(x)
+
+            plt.figure(folder)
+            plt.plot(xs, f1s)
+            plt.plot(xs, accs)
+            plt.legend(['f1', 'acc'], loc='upper right')
+            plt.savefig(folder + '.png')
+            plt.show()
+
+def pre_draw_blog(eval):
+    data = collections.defaultdict(list)
+    for folder,file in eval:
+        if 'gcn' in folder:
+            file_name = file.split("/")[-1]
+            x = int(file_name.split('.')[0].split("_")[-1])
+            data[folder].append((x,eval[(folder,file)]))
+    return data
+
+
+def run_blog(model):
+    print("Load Data")
+    labels = np.load(os.path.join(c_folder, "blog/data/blog_labels.npy"))
+    eval = collections.defaultdict(list)
+    if model == "gcn":
+        for folder in sort_nicely(os.listdir(os.path.join(c_folder, "blog/gcn"))):
+            path = c_folder + "/blog/gcn/{}/intermediate".format(folder)
+            for file in sort_nicely(glob.glob(path + "/*.npy")):
+                print("*" * 50)
+                print('Processing folder ', folder)
+                print ('Processing file ', file.split("/")[-1])
+                embedding = np.load(file)
+                acc, f1 = run_one_file(embedding, labels)
+                eval[(folder,file)] = [acc,f1]
+
+    elif model == "node2vec":
+        path = c_folder + "/blog/node2vec"
+        for file in sort_nicely(glob.glob(path + "/*.npy")):
+            print("*" * 50)
+            print('Processing file ', file.split("/")[-1])
+            embedding = np.load(file)
+            acc, f1 = run_one_file(embedding, labels)
+            eval[("node2vec",file)] = [acc,f1]
+    return eval
+
+def run_one_file(embedding, labels):
+    X_train, X_test, y_train, y_test = train_test_split(embedding, labels)
+    acc, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
+    return acc, f1
 
 def run_dataset(dataset):
     print('Python 3 please!')
     print('Load embeddings')
-    eval = collections.defaultdict(list)
-    for embedding in sort_nicely(glob.glob(os.path.join(current_folder, "*.npy"))):
+    for embedding in sort_nicely(glob.glob(os.path.join(c_folder + "/npy_files", "*.npy"))):
         acc, f1 = analyze_embedding(embedding, dataset)
-        # gen_eval_input(eval, acc, f1, embedding)
-    return eval
+    return
 
 def gen_eval_input(eval, acc, f1, embedding):
     embedding = embedding.split("/")[-1]
@@ -32,9 +101,6 @@ def gen_eval_input(eval, acc, f1, embedding):
 
     assert (len(key) == 5)
     eval[tuple(key)] = [acc, f1]
-
-def draw_curve(eval, var):
-    pass
 
 def analyze_embedding(embedding, dataset):
     embed = np.load(embedding)
@@ -58,7 +124,6 @@ def split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, t
         if val_mask[i]:
             X_train.append(data[i])
             y_train.append(y_val[i])
-
     X_test = []
     y_test = []
 
@@ -75,9 +140,11 @@ def split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, t
     return X_train, y_train, X_test, y_test
 
 def run_model_sklearn(X_train, y_train, X_test, y_test):
-    y_train = process_y(y_train)
-    y_test = process_y(y_test)
-    lr = LogisticRegression(multi_class= 'multinomial', solver = 'newton-cg')
+    if len(y_train[0]) > 1:
+        y_train = process_y(y_train)
+    if len(y_test[0]) > 1:
+        y_test = process_y(y_test)
+    lr = LogisticRegression(multi_class= 'ovr', solver = 'liblinear')
     lr.fit(X_train, y_train)
     y_pred = lr.predict(X_test)
     print('Result')
@@ -90,12 +157,17 @@ def run_model_sklearn(X_train, y_train, X_test, y_test):
 def process_y(y_data):
     y_res = []
     for entry in y_data:
-        index = list(entry).index(max(entry))
-        y_res.append(index)
+        if max(entry) == 0.0:
+            print(entry)
+            y_res.append(len(entry))
+        else:
+            index = list(entry).index(max(entry))
+            y_res.append(index)
     y_res = np.asarray(y_res)
     return y_res
 
 
+'''
 def run_model(X_train, y_train, X_test, y_test):
     lr = LogisticRegression(input=X_train, label=y_train, n_in=X_train.shape[1], n_out=y_train.shape[1])
     n_epochs = 200
@@ -135,7 +207,7 @@ def cal_macro_F1(y_pred, y_test):
     f1 = f1_score(y_pred_res, y_test, average = 'macro')
     print ('f1_score = ', f1)
     return f1
-
+'''
 '''
 Code below is from 
 https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically.
@@ -158,7 +230,7 @@ def sort_nicely(l):
     return l
 
 if __name__ == '__main__':
-    dataset = "cora"
-    eval = run_dataset(dataset)
-    print(eval)
-    #draw_curve(eval, "iter")
+    data_engine = Data_engine("blog")
+    data_engine.run("gcn")
+    # data_engine.run("node2vec")
+    data_engine.draw()
