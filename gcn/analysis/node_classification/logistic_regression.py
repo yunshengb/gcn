@@ -3,50 +3,114 @@ from gcn.utils import *
 from sklearn.metrics import f1_score,accuracy_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
-import glob,os,re,sys,collections
+import glob,os,re,sys,collections,pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
 c_folder = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(c_folder, "../.."))
 
+LIM = None
 class Data_engine:
     def __init__(self,dataset):
         self.dataset = dataset
         self.eval = {}
+        self.loss = {}
+        self.run_loss = None
+        self.run_eval = None
+        self.baseline = (0,0)
+
         if dataset == "blog":
-            self.run_func = run_blog
-            self.pre_draw = pre_draw_blog
+            self.run_eval = run_blog
+        elif dataset == "cora":
+            self.run_eval = run_cora
+            self.run_loss = run_cora_loss
     def run(self,model):
-        self.eval = {**self.eval, **self.run_func(model)}
+        self.eval = {**self.eval, **self.run_eval(model)}
+        self.save_eval()
+    def run_with_loss(self,model):
+        self.loss = {**self.loss, **self.run_loss(model)}
+    def load_eval(self):
+        with open('eval.pkl', 'rb') as f:
+            return pickle.load(f)
+    def save_eval(self):
+        with open('eval.pkl', 'wb') as f:
+            pickle.dump(self.eval, f, pickle.HIGHEST_PROTOCOL)
+    def pre_draw(self):
+        data = collections.defaultdict(list)
+        for folder, file in self.eval:
+            if 'gcn' in folder:
+                file_name = file.split("/")[-1]
+                x = int(file_name.split('.')[0].split("_")[-1])
+                data[folder].append((x, self.eval[(folder, file)]))
+            if 'node2vec' in folder:
+                self.baseline = self.eval[(folder, file)]
+        return data
+    def pre_draw_loss(self):
+        data = collections.defaultdict(list)
+        for folder, file in self.loss:
+            if 'gcn' in folder:
+                file_name = file.split("/")[-1]
+                x = int(file_name.split('.')[0].split("_")[-1])
+                data[folder].append((x, self.loss[(folder, file)]))
+        return data
     def draw(self):
-        data = self.pre_draw(self.eval)
-        for folder in data:
+        eval = self.pre_draw()
+        loss = self.pre_draw_loss()
+
+        for folder in eval:
             accs = []
             f1s = []
             xs = []
 
-            for x, (acc,f1) in data[folder]:
+            for x, (acc,f1) in eval[folder]:
                 accs.append(acc)
                 f1s.append(f1)
                 xs.append(x)
 
-            plt.figure(folder)
-            plt.plot(xs, f1s)
-            plt.plot(xs, accs)
-            plt.legend(['f1', 'acc'], loc='upper right')
-            plt.savefig(folder + '.png')
+            losses = []
+            l_xs = []
 
-            plt.show()
+            base_ys = [self.baseline[0]] * len(xs)
 
-def pre_draw_blog(eval):
-    data = collections.defaultdict(list)
-    for folder,file in eval:
-        if 'gcn' in folder:
-            file_name = file.split("/")[-1]
-            x = int(file_name.split('.')[0].split("_")[-1])
-            data[folder].append((x,eval[(folder,file)]))
-    return data
+            for x, l in loss[folder]:
+                l_xs.append(x)
+                losses.append(l)
+
+            fig, ax = plt.subplots()
+            fig.suptitle(folder)
+
+            def two_scales(ax1, xs, l_xs, base_ys, accs, losses, c1, c2):
+                ax2 = ax1.twinx()
+                ax1.plot(xs, accs, color=c1, label = "gcn acc")
+                ax1.plot(xs, base_ys, color = 'yellowgreen', label = 'node2vec acc', linestyle = "--")
+                ax1.legend(loc="upper right")
+                ax1.set_xlabel('Iter')
+                # ax1.set_xlim([0, 100])
+                ax1.set_ylabel('Accs')
+                ax1.yaxis.label.set_color(c1)
+
+                ax2.plot(l_xs, losses, color=c2, label = "loss")
+                # ax2.set_xlim([0, 100])
+                ax2.set_ylabel('Losses')
+                ax2.yaxis.label.set_color(c2)
+
+                def color_y_axis(ax, color):
+                    """Color your axes."""
+                    for t in ax.get_yticklabels():
+                        t.set_color(color)
+                    return None
+
+                color_y_axis(ax1, c1)
+                color_y_axis(ax2, c2)
+
+
+                return ax1, ax2
+
+            ax1, ax2 = two_scales(ax, xs, l_xs, base_ys, accs, losses, 'lightcoral', 'lightskyblue')
+            plt.savefig(folder + ".png")
+            # plt.show()
+
 def run_blog(model):
     print("Load Data")
     labels = np.load(os.path.join(c_folder, "blog/data/blog_labels.npy"))
@@ -117,28 +181,48 @@ def sort_nicely(l):
     l.sort(key=alphanum_key)
     return l
 
-def run_dataset(dataset):
-    print('Python 3 please!')
-    print('Load embeddings')
-    for embedding in sort_nicely(glob.glob(os.path.join(c_folder + "/npy_files", "*.npy"))):
-        acc, f1 = analyze_embedding(embedding, dataset)
-    return
-def gen_eval_input(eval, acc, f1, embedding):
-    embedding = embedding.split("/")[-1]
-    name_tokens = embedding[:-4].split("_")
-    # key: (iter, p, q, num_walks, window_size)
-    key = []
-    for idx, token in enumerate(name_tokens):
-        if token in ["iter", "p", "q", "walk", "win"]:
-            key.append(name_tokens[idx + 1])
+def run_cora(model):
+    print('Load Data')
+    eval = collections.defaultdict(list)
+    adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask = load_data('cora', 0)
+    dataset = (adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask)
+    if model == "gcn":
+        for folder in sort_nicely(os.listdir(os.path.join(c_folder, "cora/gcn"))):
+            path = c_folder + "/cora/gcn/{}/intermediate".format(folder)
+            for file in sort_nicely(glob.glob(path + "/*.npy")):
+                if "emb" in file and "loss" not in file:
+                    print("*" * 50)
+                    print('Processing folder ', folder)
+                    print ('Processing file ', file.split("/")[-1])
+                    acc, f1 = run_one_file_cora(file, dataset)
+                    eval[(folder,file)] = [acc,f1]
 
-    assert (len(key) == 5)
-    eval[tuple(key)] = [acc, f1]
-def analyze_embedding(embedding, dataset):
-    embed = np.load(embedding)
-    print ("*" * 50)
-    print('Processing file ', embedding.split("/")[-1])
-    adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask = load_data(dataset, 0)
+    elif model == "node2vec":
+        path = c_folder + "/cora/node2vec"
+        for file in sort_nicely(glob.glob(path + "/*.npy")):
+            print("*" * 50)
+            print('Processing file ', file.split("/")[-1])
+            acc, f1 = run_one_file_cora(file, dataset)
+            eval[("node2vec",file)] = [acc,f1]
+    return eval
+def run_cora_loss(model):
+    print('Load Loss')
+    loss = collections.defaultdict(float)
+    if model == "gcn":
+        for folder in sort_nicely(os.listdir(os.path.join(c_folder, "cora/gcn"))):
+            path = c_folder + "/cora/gcn/{}/intermediate".format(folder)
+            for file in sort_nicely(glob.glob(path + "/*.npy")):
+                if "loss" in file and "emb" not in file:
+                    print("*" * 50)
+                    print('Processing folder ', folder)
+                    print ('Processing file ', file.split("/")[-1])
+                    cur_loss = np.load(file)
+                    print('loss = ', cur_loss)
+                    loss[(folder,file)] = float(cur_loss)
+    return loss
+def run_one_file_cora(file, dataset):
+    embed = np.load(file)
+    adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask = dataset
     X_train, y_train, X_test, y_test = split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, test_mask)
     acc, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
     return acc, f1
@@ -215,9 +299,20 @@ def cal_macro_F1(y_pred, y_test):
 Code below is from 
 https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically.
 '''
+# def gen_eval_input(eval, acc, f1, embedding):
+#     embedding = embedding.split("/")[-1]
+#     name_tokens = embedding[:-4].split("_")
+#     # key: (iter, p, q, num_walks, window_size)
+#     key = []
+#     for idx, token in enumerate(name_tokens):
+#         if token in ["iter", "p", "q", "walk", "win"]:
+#             key.append(name_tokens[idx + 1])
+#     assert (len(key) == 5)
+#     eval[tuple(key)] = [acc, f1]
 
 if __name__ == '__main__':
-    data_engine = Data_engine("blog")
+    data_engine = Data_engine("cora")
+    data_engine.run("gcn")
+    data_engine.run_with_loss('gcn')
     data_engine.run("node2vec")
-    # data_engine.run("node2vec")
-    #data_engine.draw()
+    data_engine.draw()
