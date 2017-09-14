@@ -2,6 +2,8 @@ import tensorflow as tf
 from gcn.utils import *
 from sklearn.metrics import f1_score,accuracy_score
 from sklearn.linear_model import LogisticRegression
+from sklearn.multiclass import OneVsRestClassifier
+from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
 import glob,os,re,sys,collections,pickle
 import numpy as np
@@ -113,7 +115,8 @@ class Data_engine:
 
 def run_blog(model):
     print("Load Data")
-    labels = np.load(os.path.join(c_folder, "blog/data/blog_labels.npy"))
+    labels = pro_blog_label()
+    # labels = np.load(c_folder + "/blog/data/blog_labels.npy")
     eval = collections.defaultdict(list)
     if model == "gcn":
         for folder in sort_nicely(os.listdir(os.path.join(c_folder, "blog/gcn"))):
@@ -135,16 +138,14 @@ def run_blog(model):
             acc, f1 = run_one_file(embedding, labels)
             eval[("node2vec",file)] = [acc,f1]
     return eval
+
 def run_one_file(embedding, labels):
-    X_train, X_test, y_train, y_test = train_test_split(embedding, labels)
+    X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.9)
     acc, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
     return acc, f1
 
 def run_model_sklearn(X_train, y_train, X_test, y_test):
-    if len(y_train[0]) > 1:
-        y_train = process_y(y_train)
-    if len(y_test[0]) > 1:
-        y_test = process_y(y_test)
+
     lr = LogisticRegression(multi_class= 'ovr', solver = 'liblinear')
     lr.fit(X_train, y_train)
     y_pred = lr.predict(X_test)
@@ -224,6 +225,8 @@ def run_one_file_cora(file, dataset):
     embed = np.load(file)
     adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask = dataset
     X_train, y_train, X_test, y_test = split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, test_mask)
+    y_train = process_y(y_train)
+    y_test = process_y(y_test)
     acc, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
     return acc, f1
 def split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, test_mask):
@@ -253,6 +256,22 @@ def split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, t
     y_test = np.asarray(y_test)
 
     return X_train, y_train, X_test, y_test
+
+def pro_blog_label():
+    labels = np.load(c_folder + "/blog/data/blog_labels.npy")
+    new_labels = []
+    index = 0
+    dic = collections.defaultdict(int)
+    for entry in labels:
+        new_entry = [str(int(i)) for i in entry]
+        key = "".join(new_entry)
+        if key not in dic:
+            dic[key] = index
+            index += 1
+        new_labels.append(dic[key])
+    return new_labels
+
+
 
 '''
 def run_model(X_train, y_train, X_test, y_test):
@@ -311,8 +330,8 @@ https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically.
 #     eval[tuple(key)] = [acc, f1]
 
 if __name__ == '__main__':
-    data_engine = Data_engine("cora")
-    data_engine.run("gcn")
-    data_engine.run_with_loss('gcn')
+    data_engine = Data_engine("blog")
+    #data_engine.run("node2vec")
+    #data_engine.run_with_loss('gcn')
     data_engine.run("node2vec")
-    data_engine.draw()
+    #data_engine.draw()
