@@ -189,7 +189,7 @@ class GraphConvolution(Layer):
         if self.bias:
             output += self.vars['bias']
 
-        return (output)
+        return self.act(output)
 
 
 class Embedding(Layer):

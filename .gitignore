@@ -106,3 +106,5 @@ ENV/
 *.tar.gz
 
 events.out.tfevents.*
+
+*.csv

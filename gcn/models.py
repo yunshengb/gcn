@@ -178,7 +178,7 @@ class GCN(Model):
             self.layers.append(GraphConvolution(input_dim=self.input_dim,
                                                 output_dim=FLAGS.hidden1,
                                                 placeholders=self.placeholders,
-                                                act=tf.nn.relu,
+                                                act=lambda x: x,
                                                 dropout=True,
                                                 sparse_inputs=True,
                                                 logging=self.logging))
@@ -190,6 +190,14 @@ class GCN(Model):
                                                 act=lambda x: x,
                                                 dropout=True,
                                                 logging=self.logging))
+
+            # self.layers.append(GraphConvolution(input_dim=FLAGS.hidden2,
+            #                                     output_dim=FLAGS.hidden3 if
+            #                                     FLAGS.embed else self.output_dim,
+            #                                     placeholders=self.placeholders,
+            #                                     act=lambda x: x,
+            #                                     dropout=True,
+            #                                     logging=self.logging))
 
         if FLAGS.embed >= 2:
             self.layers.append(Embedding(input_dim=FLAGS.hidden2 if

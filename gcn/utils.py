@@ -14,10 +14,13 @@ def prepare_exp_dir(flags):
     else '', datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
     intermediate_dir = '%s/intermediate' % dir
     logdir = '%s/log' % dir
+
     def makedir(dir):
         os.system('rm -rf %s && mkdir -pv %s' % (dir, dir))
-    makedir(intermediate_dir)
-    makedir(logdir)
+
+    if not flags.debug:
+        makedir(intermediate_dir)
+        makedir(logdir)
     return dir, intermediate_dir, logdir
 
 
@@ -41,8 +44,20 @@ def load_synthetic_data():
         [[0, 1, 1, 0, 0], [1, 0, 0, 1, 0], [1, 0, 0, 1, 0], [0, 1, 1, 0, 1],
          [0, 0, 0, 1,
           0]])
+    # adj = np.array(
+    #     [[0,1,0],[1,0,1],[0,1,0]])
+    return load_data_from_adj(adj)
+
+
+def load_blog_data():
+    adj = np.load(
+        '{}/data/BlogCatalog-dataset/data/blog_adj.npy'.format(current_folder))
+    return load_data_from_adj(adj)
+
+
+def load_data_from_adj(adj):
     im = np.identity(adj.shape[0])
-    labels = normalize(adj + im, norm='l1')
+    labels = proc_labels(adj)
     features = sp.lil_matrix(im)
     idx_test = range(len(labels))
     idx_train = range(len(labels))
@@ -57,6 +72,8 @@ def load_data(dataset_str, embed):
     """Load data."""
     if dataset_str == 'syn':
         return load_synthetic_data()
+    if dataset_str == 'blog':
+        return load_blog_data()
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
     for i in range(len(names)):
@@ -115,7 +132,7 @@ def load_data(dataset_str, embed):
         return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
     else:
         im = np.identity(labels.shape[0])
-        labels = adj.todense()
+        labels = proc_adj(adj)
         if embed == 1 or embed == 2:
             features = sp.lil_matrix(im)
         elif embed == 3:
@@ -125,12 +142,11 @@ def load_data(dataset_str, embed):
         # print(np.count_nonzero(x))
         # print(np.extract(x!=0, x))
         # print(x[3917])
-        zero_diagonal = np.ones(labels.shape)
-        np.fill_diagonal(zero_diagonal, 0)
-        labels = np.multiply(labels, zero_diagonal)
-        labels = normalize(labels, norm='l1')
+        # labels = np.dot(labels, labels)
+        # labels = proc_labels(labels)
         return select(adj), select(features), select(labels), select(labels), \
-        select(labels), select(train_mask), select(val_mask), select(test_mask)
+               select(labels), select(train_mask), select(val_mask), select(
+            test_mask)
 
 
 def select(a, size=None):
@@ -142,6 +158,45 @@ def select(a, size=None):
         return a[0:size]
     else:
         return None
+
+
+def proc_labels(labels):
+    zero_diagonal = np.ones(labels.shape)
+    np.fill_diagonal(zero_diagonal, 0)
+    labels = np.multiply(labels, zero_diagonal)
+    # for i in range(labels.shape[0]):
+    #     if np.count_nonzero(labels[i]) == 0:
+    #         print('@@@@@')
+    #         exit(1)
+    #     print(np.count_nonzero(labels[i]))
+    # print('Checked#######################')
+    return normalize(labels, norm='l1')
+
+
+def proc_adj(adj, weights=[0.7, 0.2, 0.1]):
+    one = adj
+    self = np.identity(adj.shape[0])
+    one_with_self = adj + self
+    temp = one_with_self.dot(one_with_self)
+    temp = div0(temp, temp)
+    two = temp - one_with_self
+    d = one.sum(1)
+    normalized_adj = np.zeros(adj.shape)
+    for i, neighbor in enumerate([self, one, two]):
+        normalized_adj += norm(neighbor, d, weights[i])
+    return normalized_adj
+
+
+def norm(neighbor, d, weight):
+    return weight * normalize(np.multiply(neighbor, d), norm='l1')
+
+
+def div0(a, b):
+    """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+    with np.errstate(divide='ignore', invalid='ignore'):
+        c = np.true_divide(a, b)
+        c[~ np.isfinite(c)] = 0  # -inf inf NaN
+    return c
 
 
 def sparse_to_tuple(sparse_mx):
@@ -187,6 +242,9 @@ def normalize_adj(adj):
 def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
     adj_normalized = normalize_adj(adj + sp.eye(adj.shape[0]))
+    # adj_normalized = normalize(sp.coo_matrix(adj) + sp.eye(adj.shape[0]), norm='l1')
+    # adj_normalized = sp.eye(adj.shape[0])
+    adj_normalized = sp.coo_matrix(proc_adj(adj, weights=[0.7,0.3,0]))
     return sparse_to_tuple(adj_normalized)
 
 
@@ -233,7 +291,9 @@ def chebyshev_polynomials(adj, k):
     return sparse_to_tuple(t_k)
 
 
-def print_var(sess, feed_dict, var, name, intermediate_dir, save=False):
+def print_var(sess, feed_dict, var, name, intermediate_dir, debug, save=False):
+    if debug:
+        return
     # Output variable.
     var = sess.run([var], feed_dict=feed_dict)
     assert (len(var) == 1)
