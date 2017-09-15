@@ -6,7 +6,7 @@ import os, glob, re
 
 c = os.path.dirname(os.path.realpath(__file__))
 
-datasets = ['cora']
+datasets = ['blog']
 
 DIMENSIONS = [10, 100]
 

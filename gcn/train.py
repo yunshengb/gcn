@@ -15,15 +15,17 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'pubmed', 'Dataset string.')  # 'cora',
-# 'citeseer', 'pubmed','syn
+flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
+# 'cora', 'citeseer', 'pubmed', 'syn', 'blog'
+flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
-flags.DEFINE_string('desc', '', 'Description of the experiment.')
+flags.DEFINE_string('desc', 'improved_adj', 'Description of the experiment.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 401, 'Number of epochs to train.')
-flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
+flags.DEFINE_integer('epochs', 2001, 'Number of epochs to train.')
+flags.DEFINE_integer('hidden1', 400, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 200, 'Number of units in hidden layer 2.')
+#flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')
 flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2|3.')
 # Plan 1: Dense layer after conv
 # Plan 2: Embedding layer conv
@@ -38,8 +40,8 @@ flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 # PRINT_EPOCHES = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16,
 #                  17, 18, 19, 20, 30, 40, 50,
 #                  60, 70, 80, 90, 100, 200, 400, 600, 800, 1000]
-PRINT_EPOCHES = [0, 10, 20, 30, 40, 50,
-                 60, 70, 80, 90, 100, 200, 400, 600, 800, 1000]
+# PRINT_EPOCHES = [0, 10, 20, 30, 40, 50,
+#                  60, 70, 80, 90, 100, 200, 400, 600, 800, 1000]
 # PRINT_EPOCHES = []
 
 # Load data
@@ -93,11 +95,20 @@ model = model_func(placeholders, input_dim=features[2][1], logging=True)
 # Initialize session
 sess = tf.Session()
 
+def need_print(epoch=None):
+    if FLAGS.debug:
+        return False
+    if not epoch:
+        return True
+    return epoch < 50 or epoch % 50 == 0
+    # return False
+
 # Summary.
 dir, intermediate_dir, logdir = prepare_exp_dir(FLAGS)
 merged = tf.summary.merge_all()
-train_writer = tf.summary.FileWriter(logdir + '/train', sess.graph)
-test_writer = tf.summary.FileWriter(logdir + '/test')
+if need_print():
+    train_writer = tf.summary.FileWriter(logdir + '/train', sess.graph)
+    test_writer = tf.summary.FileWriter(logdir + '/test')
 
 
 # Define model evaluation function
@@ -124,14 +135,17 @@ for epoch in range(FLAGS.epochs):
                                     placeholders, FLAGS.embed)
     # feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
-    if epoch in PRINT_EPOCHES:
+    if need_print(epoch):
         print_var(sess, feed_dict, model.layers[-1].embeddings,
                   'gcn_%s_emb_%s' % (FLAGS.dataset, epoch), intermediate_dir,
-                  True)
+                  FLAGS.debug, True)
+        print_var(sess, feed_dict, model.loss,
+                  'gcn_%s_loss_%s' % (FLAGS.dataset, epoch), intermediate_dir,
+                  FLAGS.debug, True)
 
     # Training step
     fetches = [model.opt_op, model.loss, model.accuracy, merged]
-    if epoch in PRINT_EPOCHES:
+    if need_print(epoch):
         fetches.append(merged)
     outs = sess.run(fetches, feed_dict=feed_dict)
 
@@ -141,7 +155,7 @@ for epoch in range(FLAGS.epochs):
           "time=",
           "{:.5f}".format(time.time() - t))
 
-    if epoch in PRINT_EPOCHES:
+    if need_print(epoch):
         train_writer.add_summary(outs[-1], epoch)
 
 print("Optimization Finished!")
@@ -153,4 +167,5 @@ test_cost, test_acc, summary, test_duration = evaluate(features, support,
 print("Test set results:", "cost=", "{:.5f}".format(test_cost),
       "time=", "{:.5f}".format(test_duration))
 
-test_writer.add_summary(summary, FLAGS.epochs-1)
+if need_print():
+    test_writer.add_summary(summary, FLAGS.epochs-1)
