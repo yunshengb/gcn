@@ -65,7 +65,8 @@ def load_data_from_adj(adj):
     train_mask = sample_mask(idx_train, labels.shape[0])
     val_mask = sample_mask(idx_val, labels.shape[0])
     test_mask = sample_mask(idx_test, labels.shape[0])
-    return adj, features, labels, labels, labels, train_mask, val_mask, test_mask
+    return sp.csr_matrix(adj), features, labels, labels, labels, train_mask, \
+           val_mask, test_mask
 
 
 def load_data(dataset_str, embed):
@@ -131,19 +132,11 @@ def load_data(dataset_str, embed):
     if embed == 0:  # no embedding
         return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
     else:
-        im = np.identity(labels.shape[0])
-        labels = proc_adj(adj)
+        labels = proc_labels(adj.todense())
         if embed == 1 or embed == 2:
-            features = sp.lil_matrix(im)
+            features = sp.lil_matrix(np.identity(labels.shape[0]))
         elif embed == 3:
             features = np.ones([labels.shape[0], 200])
-        # return adj, features, labels, labels, labels, train_mask, val_mask, test_mask
-        # x = labels[3918]
-        # print(np.count_nonzero(x))
-        # print(np.extract(x!=0, x))
-        # print(x[3917])
-        # labels = np.dot(labels, labels)
-        # labels = proc_labels(labels)
         return select(adj), select(features), select(labels), select(labels), \
                select(labels), select(train_mask), select(val_mask), select(
             test_mask)
@@ -161,6 +154,7 @@ def select(a, size=None):
 
 
 def proc_labels(labels):
+    # adj is dense.
     zero_diagonal = np.ones(labels.shape)
     np.fill_diagonal(zero_diagonal, 0)
     labels = np.multiply(labels, zero_diagonal)
@@ -173,7 +167,48 @@ def proc_labels(labels):
     return normalize(labels, norm='l1')
 
 
-def proc_adj(adj, weights=[0.7, 0.2, 0.1]):
+def preprocess_features(features):
+    """Row-normalize feature matrix and convert to tuple representation"""
+    rowsum = np.array(features.sum(1))
+    r_inv = np.power(rowsum, -1).flatten()
+    r_inv[np.isinf(r_inv)] = 0.
+    r_mat_inv = sp.diags(r_inv)
+    features = r_mat_inv.dot(features)
+    return sparse_to_tuple(features)
+
+
+def preprocess_adj(adj):
+    """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
+    # adj_normalized = normalize_adj(adj + sp.eye(adj.shape[0]))
+    adj_normalized = sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[0.7,
+                                                                           0.3,
+                                                                           0]))
+    return sparse_to_tuple(adj_normalized)
+
+
+def normalize_adj(adj):
+    """Symmetrically normalize adjacency matrix."""
+    # adj is sparse.
+    adj = sp.coo_matrix(adj)
+    rowsum = np.array(adj.sum(1))
+    d_inv_sqrt = np.power(rowsum, -0.5).flatten()
+    d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
+    d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
+    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
+
+
+def normalize_adj_2(adj, weights=[0.7, 0.2, 0.1]):
+    # adj is dense.
+    def norm(neighbor, d, weight):
+        return weight * normalize(np.multiply(neighbor, d), norm='l1')
+
+    def div0(a, b):
+        """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+        with np.errstate(divide='ignore', invalid='ignore'):
+            c = np.true_divide(a, b)
+            c[~ np.isfinite(c)] = 0  # -inf inf NaN
+        return c
+
     one = adj
     self = np.identity(adj.shape[0])
     one_with_self = adj + self
@@ -185,67 +220,6 @@ def proc_adj(adj, weights=[0.7, 0.2, 0.1]):
     for i, neighbor in enumerate([self, one, two]):
         normalized_adj += norm(neighbor, d, weights[i])
     return normalized_adj
-
-
-def norm(neighbor, d, weight):
-    return weight * normalize(np.multiply(neighbor, d), norm='l1')
-
-
-def div0(a, b):
-    """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
-    with np.errstate(divide='ignore', invalid='ignore'):
-        c = np.true_divide(a, b)
-        c[~ np.isfinite(c)] = 0  # -inf inf NaN
-    return c
-
-
-def sparse_to_tuple(sparse_mx):
-    """Convert sparse matrix to tuple representation."""
-
-    def to_tuple(mx):
-        if not sp.isspmatrix_coo(mx):
-            mx = mx.tocoo()
-        coords = np.vstack((mx.row, mx.col)).transpose()
-        values = mx.data
-        shape = mx.shape
-        return coords, values, shape
-
-    if isinstance(sparse_mx, list):
-        for i in range(len(sparse_mx)):
-            sparse_mx[i] = to_tuple(sparse_mx[i])
-    else:
-        sparse_mx = to_tuple(sparse_mx)
-
-    return sparse_mx
-
-
-def preprocess_features(features):
-    """Row-normalize feature matrix and convert to tuple representation"""
-    rowsum = np.array(features.sum(1))
-    r_inv = np.power(rowsum, -1).flatten()
-    r_inv[np.isinf(r_inv)] = 0.
-    r_mat_inv = sp.diags(r_inv)
-    features = r_mat_inv.dot(features)
-    return sparse_to_tuple(features)
-
-
-def normalize_adj(adj):
-    """Symmetrically normalize adjacency matrix."""
-    adj = sp.coo_matrix(adj)
-    rowsum = np.array(adj.sum(1))
-    d_inv_sqrt = np.power(rowsum, -0.5).flatten()
-    d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
-    d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
-
-
-def preprocess_adj(adj):
-    """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
-    adj_normalized = normalize_adj(adj + sp.eye(adj.shape[0]))
-    # adj_normalized = normalize(sp.coo_matrix(adj) + sp.eye(adj.shape[0]), norm='l1')
-    # adj_normalized = sp.eye(adj.shape[0])
-    adj_normalized = sp.coo_matrix(proc_adj(adj, weights=[0.7,0.3,0]))
-    return sparse_to_tuple(adj_normalized)
 
 
 def construct_feed_dict(features, support, labels, labels_mask, placeholders,
@@ -289,6 +263,26 @@ def chebyshev_polynomials(adj, k):
         t_k.append(chebyshev_recurrence(t_k[-1], t_k[-2], scaled_laplacian))
 
     return sparse_to_tuple(t_k)
+
+
+def sparse_to_tuple(sparse_mx):
+    """Convert sparse matrix to tuple representation."""
+
+    def to_tuple(mx):
+        if not sp.isspmatrix_coo(mx):
+            mx = mx.tocoo()
+        coords = np.vstack((mx.row, mx.col)).transpose()
+        values = mx.data
+        shape = mx.shape
+        return coords, values, shape
+
+    if isinstance(sparse_mx, list):
+        for i in range(len(sparse_mx)):
+            sparse_mx[i] = to_tuple(sparse_mx[i])
+    else:
+        sparse_mx = to_tuple(sparse_mx)
+
+    return sparse_mx
 
 
 def print_var(sess, feed_dict, var, name, intermediate_dir, debug, save=False):
