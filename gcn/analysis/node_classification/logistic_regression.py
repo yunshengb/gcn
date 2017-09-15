@@ -140,7 +140,7 @@ def run_blog(model):
     return eval
 
 def run_one_file(embedding, labels):
-    X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.9)
+    X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.4)
     acc, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
     return acc, f1
 
