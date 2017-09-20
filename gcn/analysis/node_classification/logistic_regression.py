@@ -2,6 +2,7 @@ from gcn.utils import *
 from sklearn.metrics import f1_score,accuracy_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
+from sklearn.svm import LinearSVC
 from sklearn.multiclass import OneVsRestClassifier
 import glob,os,re,sys,collections,pickle
 import numpy as np
@@ -139,25 +140,26 @@ def run_blog(model):
     return eval
 def run_one_file_blog(embedding, labels):
     X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.5)
-    # classif = OneVsRestClassifier(LogisticRegression(class_weight = "balanced"))
-    # classif.fit(X_train, y_train)
-    # y_pred = classif.predict(X_test)
-    # f1 = f1_score(y_test,y_pred, average="macro")
-    # print(f1)
-    # return 1, f1
+    classif = OneVsRestClassifier(LinearSVC(class_weight="balanced"))
+    classif.fit(X_train,y_train)
+    y_pred = classif.predict(X_test)
+    f1 = f1_score(y_test,y_pred, average="macro")
+    print(f1)
+    return 1, f1
+    #
+    # f1s = []
+    # accs = []
+    # for i in range(len(y_train[0])):
+    #     y_train_cur = y_train[:,i]
+    #     y_test_cur = y_test[:,i]
+    #     acc, f1 = run_model_sklearn(X_train, y_train_cur, X_test, y_test_cur)
+    #     f1s.append(f1)
+    #     accs.append(acc)
+    #
+    # print("")
+    # print("Average accuracy = {}, f1 = {}".format(np.mean(accs), np.mean(f1s)))
+    # return np.mean(accs), np.mean(f1s)
 
-    f1s = []
-    accs = []
-    for i in range(len(y_train[0])):
-        y_train_cur = y_train[:,i]
-        y_test_cur = y_test[:,i]
-        acc, f1 = run_model_sklearn(X_train, y_train_cur, X_test, y_test_cur)
-        f1s.append(f1)
-        accs.append(acc)
-
-    print("")
-    print("Average accuracy = {}, f1 = {}".format(np.mean(accs), np.mean(f1s)))
-    return np.mean(accs), np.mean(f1s)
 
 def run_model_sklearn(X_train, y_train, X_test, y_test):
     lr = LogisticRegression(class_weight="balanced")
@@ -181,6 +183,7 @@ def run_model_sklearn(X_train, y_train, X_test, y_test):
     # print('p_label nonzero count {}'.format(np.count_nonzero(p_label)))
     # # print("accuracy = {}".format(ACC))
     # print ("f1 = {}".format(f1))
+
     return ACC, f1
 def process_y(y_data):
     y_res = []
