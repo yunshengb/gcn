@@ -1,18 +1,17 @@
-import tensorflow as tf
 from gcn.utils import *
 from sklearn.metrics import f1_score,accuracy_score
 from sklearn.linear_model import LogisticRegression
-from sklearn.multiclass import OneVsRestClassifier
-from sklearn.svm import SVC
 from sklearn.model_selection import train_test_split
+from sklearn.multiclass import OneVsRestClassifier
 import glob,os,re,sys,collections,pickle
 import numpy as np
 import matplotlib.pyplot as plt
 
 c_folder = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(c_folder, "../.."))
+sys.path.insert(0, os.path.join(c_folder, "../../../../liblinear/python"))
+from liblinearutil import *
 
-LIM = None
 class Data_engine:
     def __init__(self,dataset):
         self.dataset = dataset
@@ -115,19 +114,19 @@ class Data_engine:
 
 def run_blog(model):
     print("Load Data")
-    labels = pro_blog_label()
-    # labels = np.load(c_folder + "/blog/data/blog_labels.npy")
+    labels = np.load(c_folder + "/blog/data/blog_labels.npy")
     eval = collections.defaultdict(list)
     if model == "gcn":
         for folder in sort_nicely(os.listdir(os.path.join(c_folder, "blog/gcn"))):
             path = c_folder + "/blog/gcn/{}/intermediate".format(folder)
-            for file in sort_nicely(glob.glob(path + "/*.npy")):
-                print("*" * 50)
-                print('Processing folder ', folder)
-                print ('Processing file ', file.split("/")[-1])
-                embedding = np.load(file)
-                acc, f1 = run_one_file(embedding, labels)
-                eval[(folder,file)] = [acc,f1]
+            for file in sort_nicely(glob.glob(path + "/*.npy"))[::-1]:
+                if "emb" in file and "loss" not in file:
+                    print("*" * 50)
+                    print('Processing folder ', folder)
+                    print ('Processing file ', file.split("/")[-1])
+                    embedding = np.load(file)
+                    acc, f1 = run_one_file_blog(embedding, labels)
+                    eval[(folder,file)] = [acc,f1]
 
     elif model == "node2vec":
         path = c_folder + "/blog/node2vec"
@@ -135,26 +134,54 @@ def run_blog(model):
             print("*" * 50)
             print('Processing file ', file.split("/")[-1])
             embedding = np.load(file)
-            acc, f1 = run_one_file(embedding, labels)
+            acc, f1 = run_one_file_blog(embedding, labels)
             eval[("node2vec",file)] = [acc,f1]
     return eval
+def run_one_file_blog(embedding, labels):
+    X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.5)
+    # classif = OneVsRestClassifier(LogisticRegression(class_weight = "balanced"))
+    # classif.fit(X_train, y_train)
+    # y_pred = classif.predict(X_test)
+    # f1 = f1_score(y_test,y_pred, average="macro")
+    # print(f1)
+    # return 1, f1
 
-def run_one_file(embedding, labels):
-    X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.4)
-    acc, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
-    return acc, f1
+    f1s = []
+    accs = []
+    for i in range(len(y_train[0])):
+        y_train_cur = y_train[:,i]
+        y_test_cur = y_test[:,i]
+        acc, f1 = run_model_sklearn(X_train, y_train_cur, X_test, y_test_cur)
+        f1s.append(f1)
+        accs.append(acc)
+
+    print("")
+    print("Average accuracy = {}, f1 = {}".format(np.mean(accs), np.mean(f1s)))
+    return np.mean(accs), np.mean(f1s)
 
 def run_model_sklearn(X_train, y_train, X_test, y_test):
-
-    lr = LogisticRegression(multi_class= 'ovr', solver = 'liblinear')
+    lr = LogisticRegression(class_weight="balanced")
     lr.fit(X_train, y_train)
-    y_pred = lr.predict(X_test)
+    p_label = lr.predict(X_test)
     print('Result')
-    acc = accuracy_score(y_test, y_pred)
-    print ('acc = ', acc)
-    f1 = f1_score(y_test, y_pred, average='macro')
+    ACC = accuracy_score(y_test, p_label)
+    print ('accuracy = ', ACC)
+    f1 = f1_score(y_test, p_label)
     print('f1_score = ', f1)
-    return acc, f1
+
+    # prob = problem(y_train, X_train)
+    # param = parameter('-s 0 -c 5 -w1 20 -q -B 1')
+    # m = train(prob, param)
+    # p_label, p_acc, p_val = predict(y_test, X_test, m, '-b 1')
+    # ACC, MSE, SCC = evaluations(y_test, p_label)
+    # # print('Result')
+    # print("Total number of data: {}".format(len(y_test)))
+    # f1 = f1_score(y_test, p_label)
+    # print('y_test nonzero count {}'.format(np.count_nonzero(y_test)))
+    # print('p_label nonzero count {}'.format(np.count_nonzero(p_label)))
+    # # print("accuracy = {}".format(ACC))
+    # print ("f1 = {}".format(f1))
+    return ACC, f1
 def process_y(y_data):
     y_res = []
     for entry in y_data:
@@ -271,8 +298,6 @@ def pro_blog_label():
         new_labels.append(dic[key])
     return new_labels
 
-
-
 '''
 def run_model(X_train, y_train, X_test, y_test):
     lr = LogisticRegression(input=X_train, label=y_train, n_in=X_train.shape[1], n_out=y_train.shape[1])
@@ -331,7 +356,7 @@ https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically.
 
 if __name__ == '__main__':
     data_engine = Data_engine("blog")
-    #data_engine.run("node2vec")
+    # data_engine.run("gcn")
     #data_engine.run_with_loss('gcn')
     data_engine.run("node2vec")
     #data_engine.draw()
