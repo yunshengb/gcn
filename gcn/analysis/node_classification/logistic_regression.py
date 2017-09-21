@@ -24,14 +24,15 @@ class Data_engine:
 
         if dataset == "blog":
             self.run_eval = run_blog
+            self.run_loss = run_blog_loss
         elif dataset == "cora":
             self.run_eval = run_cora
             self.run_loss = run_cora_loss
-    def run(self,model):
-        self.eval = {**self.eval, **self.run_eval(model)}
+    def run(self,model, folder = None):
+        self.eval = {**self.eval, **self.run_eval(model, folder)}
         self.save_eval()
-    def run_with_loss(self,model):
-        self.loss = {**self.loss, **self.run_loss(model)}
+    def run_with_loss(self,model, folder = None):
+        self.loss = {**self.loss, **self.run_loss(model, folder)}
     def load_eval(self):
         with open('eval.pkl', 'rb') as f:
             return pickle.load(f)
@@ -56,7 +57,28 @@ class Data_engine:
                 x = int(file_name.split('.')[0].split("_")[-1])
                 data[folder].append((x, self.loss[(folder, file)]))
         return data
-    def draw(self):
+    def two_scales(self,ax1, xs, l_xs, base_measures, measures, losses, c1, c2, measure):
+        ax2 = ax1.twinx()
+        ax1.plot(xs, measures, color=c1, label="gcn {}".format(measure))
+        ax1.plot(xs, base_measures, color='yellowgreen', label='node2vec {}'.format(measure), linestyle="--")
+        ax1.legend(loc="upper right")
+        ax1.set_xlabel('Iter')
+        # ax1.set_xlim([0, 100])
+        ax1.set_ylabel('{}'.format(measure))
+        ax1.yaxis.label.set_color(c1)
+        ax2.plot(l_xs, losses, color=c2, label="loss")
+        # ax2.set_xlim([0, 100])
+        ax2.set_ylabel('Losses')
+        ax2.yaxis.label.set_color(c2)
+        self.color_y_axis(ax1, c1)
+        self.color_y_axis(ax2, c2)
+        return ax1, ax2
+    def color_y_axis(self,ax, color):
+        """Color your axes."""
+        for t in ax.get_yticklabels():
+            t.set_color(color)
+        return None
+    def draw(self, measure):
         eval = self.pre_draw()
         loss = self.pre_draw_loss()
 
@@ -64,7 +86,6 @@ class Data_engine:
             accs = []
             f1s = []
             xs = []
-
             for x, (acc,f1) in eval[folder]:
                 accs.append(acc)
                 f1s.append(f1)
@@ -73,45 +94,20 @@ class Data_engine:
             losses = []
             l_xs = []
 
-            base_ys = [self.baseline[0]] * len(xs)
+            base_acc = [self.baseline[0]] * len(xs)
+            base_f1 = [self.baseline[1]] * len(xs)
 
             for x, l in loss[folder]:
                 l_xs.append(x)
                 losses.append(l)
 
             fig, ax = plt.subplots()
-            fig.suptitle(folder)
-
-            def two_scales(ax1, xs, l_xs, base_ys, accs, losses, c1, c2):
-                ax2 = ax1.twinx()
-                ax1.plot(xs, accs, color=c1, label = "gcn acc")
-                ax1.plot(xs, base_ys, color = 'yellowgreen', label = 'node2vec acc', linestyle = "--")
-                ax1.legend(loc="upper right")
-                ax1.set_xlabel('Iter')
-                # ax1.set_xlim([0, 100])
-                ax1.set_ylabel('Accs')
-                ax1.yaxis.label.set_color(c1)
-
-                ax2.plot(l_xs, losses, color=c2, label = "loss")
-                # ax2.set_xlim([0, 100])
-                ax2.set_ylabel('Losses')
-                ax2.yaxis.label.set_color(c2)
-
-                def color_y_axis(ax, color):
-                    """Color your axes."""
-                    for t in ax.get_yticklabels():
-                        t.set_color(color)
-                    return None
-
-                color_y_axis(ax1, c1)
-                color_y_axis(ax2, c2)
-
-
-                return ax1, ax2
-
-            ax1, ax2 = two_scales(ax, xs, l_xs, base_ys, accs, losses, 'lightcoral', 'lightskyblue')
-            plt.savefig(folder + ".png")
-            # plt.show()
+            fig.suptitle(folder + "_"+ measure)
+            if measure == "f1":
+                self.two_scales(ax, xs, l_xs, base_f1, f1s, losses, 'lightcoral', 'lightskyblue', measure)
+            elif measure == "acc":
+                self.two_scales(ax, xs, l_xs, base_acc, accs, losses, 'lightcoral', 'lightskyblue', measure)
+            plt.savefig(folder + "_" + measure + ".png")
 
 def run_blog(model):
     print("Load Data")
@@ -138,14 +134,30 @@ def run_blog(model):
             acc, f1 = run_one_file_blog(embedding, labels)
             eval[("node2vec",file)] = [acc,f1]
     return eval
+def run_blog_loss(model):
+    print('Load Loss')
+    loss = collections.defaultdict(float)
+    if model == "gcn":
+        for folder in sort_nicely(os.listdir(os.path.join(c_folder, "blog/gcn"))):
+            path = c_folder + "/cora/gcn/{}/intermediate".format(folder)
+            for file in sort_nicely(glob.glob(path + "/*.npy")):
+                if "loss" in file and "emb" not in file:
+                    print("*" * 50)
+                    print('Processing folder ', folder)
+                    print ('Processing file ', file.split("/")[-1])
+                    cur_loss = np.load(file)
+                    print('loss = ', cur_loss)
+                    loss[(folder,file)] = float(cur_loss)
+    return loss
 def run_one_file_blog(embedding, labels):
     X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.5)
-    classif = OneVsRestClassifier(LinearSVC(class_weight="balanced"))
+    classif = OneVsRestClassifier(LogisticRegression(class_weight="balanced"))
     classif.fit(X_train,y_train)
     y_pred = classif.predict(X_test)
     f1 = f1_score(y_test,y_pred, average="macro")
-    print(f1)
-    return 1, f1
+    ACC = accuracy_score(y_test, y_pred)
+    print("Average accuracy = {}, f1 = {}".format(ACC, f1))
+    return ACC, f1
     #
     # f1s = []
     # accs = []
@@ -160,15 +172,14 @@ def run_one_file_blog(embedding, labels):
     # print("Average accuracy = {}, f1 = {}".format(np.mean(accs), np.mean(f1s)))
     # return np.mean(accs), np.mean(f1s)
 
-
 def run_model_sklearn(X_train, y_train, X_test, y_test):
-    lr = LogisticRegression(class_weight="balanced")
+    lr = LogisticRegression(solver= "liblinear")
     lr.fit(X_train, y_train)
     p_label = lr.predict(X_test)
     print('Result')
     ACC = accuracy_score(y_test, p_label)
     print ('accuracy = ', ACC)
-    f1 = f1_score(y_test, p_label)
+    f1 = f1_score(y_test, p_label, average = "macro")
     print('f1_score = ', f1)
 
     # prob = problem(y_train, X_train)
@@ -183,7 +194,6 @@ def run_model_sklearn(X_train, y_train, X_test, y_test):
     # print('p_label nonzero count {}'.format(np.count_nonzero(p_label)))
     # # print("accuracy = {}".format(ACC))
     # print ("f1 = {}".format(f1))
-
     return ACC, f1
 def process_y(y_data):
     y_res = []
@@ -212,13 +222,17 @@ def sort_nicely(l):
     l.sort(key=alphanum_key)
     return l
 
-def run_cora(model):
+def run_cora(model, folder = None):
     print('Load Data')
     eval = collections.defaultdict(list)
     adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask = load_data('cora', 0)
     dataset = (adj, features, y_labels, y_val, y_truth, train_mask, val_mask, test_mask)
     if model == "gcn":
-        for folder in sort_nicely(os.listdir(os.path.join(c_folder, "cora/gcn"))):
+        if not folder:
+            folders = sort_nicely(os.listdir(os.path.join(c_folder, "cora/gcn")))
+        else:
+            folders = [folder]
+        for folder in folders:
             path = c_folder + "/cora/gcn/{}/intermediate".format(folder)
             for file in sort_nicely(glob.glob(path + "/*.npy")):
                 if "emb" in file and "loss" not in file:
@@ -236,11 +250,15 @@ def run_cora(model):
             acc, f1 = run_one_file_cora(file, dataset)
             eval[("node2vec",file)] = [acc,f1]
     return eval
-def run_cora_loss(model):
+def run_cora_loss(model, folder = None):
     print('Load Loss')
     loss = collections.defaultdict(float)
     if model == "gcn":
-        for folder in sort_nicely(os.listdir(os.path.join(c_folder, "cora/gcn"))):
+        if not folder:
+            folders = sort_nicely(os.listdir(os.path.join(c_folder, "cora/gcn")))
+        else:
+            folders = [folder]
+        for folder in folders:
             path = c_folder + "/cora/gcn/{}/intermediate".format(folder)
             for file in sort_nicely(glob.glob(path + "/*.npy")):
                 if "loss" in file and "emb" not in file:
@@ -287,6 +305,7 @@ def split_data(embed, features, y_labels, y_val,y_truth, train_mask, val_mask, t
 
     return X_train, y_train, X_test, y_test
 
+'''
 def pro_blog_label():
     labels = np.load(c_folder + "/blog/data/blog_labels.npy")
     new_labels = []
@@ -300,7 +319,7 @@ def pro_blog_label():
             index += 1
         new_labels.append(dic[key])
     return new_labels
-
+'''
 '''
 def run_model(X_train, y_train, X_test, y_test):
     lr = LogisticRegression(input=X_train, label=y_train, n_in=X_train.shape[1], n_out=y_train.shape[1])
@@ -358,8 +377,15 @@ https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically.
 #     eval[tuple(key)] = [acc, f1]
 
 if __name__ == '__main__':
-    data_engine = Data_engine("blog")
-    # data_engine.run("gcn")
-    #data_engine.run_with_loss('gcn')
+    # create a data_engine object with the name of the dataset. Currently support "cora" and "blog"
+    data_engine = Data_engine("cora")
+    # choose the model to run. Currently support "gcn" and "node2vec"
+    # if the folder name is given, it will only run the folder. If not, it will run every single folder under the path:\
+    # gcn/gcn/analysis/node_classification/your_dataset/your_data_model
+    data_engine.run("gcn", "gcn_cora_20170910230013")
+    #if the loss data is given, run the loss this way
+    data_engine.run_with_loss('gcn',"gcn_cora_20170910230013")
+    # There should be one file under gcn/gcn/analysis/node_classification/your_dataset/node2vec to establish the baseline
     data_engine.run("node2vec")
-    #data_engine.draw()
+    # Draw the measurements. Currently support "f1" and "acc"
+    data_engine.draw("acc")
