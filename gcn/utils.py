@@ -5,12 +5,16 @@ import scipy.sparse as sp
 from scipy.sparse.linalg.eigen.arpack import eigsh
 from sklearn.preprocessing import normalize
 import sys, os, datetime
+import tensorflow as tf
+
+flags = tf.app.flags
+FLAGS = flags.FLAGS
 
 current_folder = os.path.dirname(os.path.realpath(__file__))
 
 
 def prepare_exp_dir(flags):
-    dir = 'gcn_%s%s_%s' % (flags.dataset, '_%s' % flags.desc if flags.desc
+    dir = 'exp/gcn_%s%s_%s' % (flags.dataset, '_%s' % flags.desc if flags.desc
     else '', datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
     intermediate_dir = '%s/intermediate' % dir
     logdir = '%s/log' % dir
@@ -54,6 +58,11 @@ def load_blog_data():
         '{}/data/BlogCatalog-dataset/data/blog_adj.npy'.format(current_folder))
     return load_data_from_adj(adj)
 
+def load_flickr_data():
+    adj = np.load(
+        '{}/data/Flickr-dataset/data/flickr_adj.npy'.format(current_folder))
+    return load_data_from_adj(adj)
+
 
 def load_data_from_adj(adj):
     im = np.identity(adj.shape[0])
@@ -75,6 +84,8 @@ def load_data(dataset_str, embed):
         return load_synthetic_data()
     if dataset_str == 'blog':
         return load_blog_data()
+    if dataset_str == 'flickr':
+        return load_flickr_data()
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
     for i in range(len(names)):
@@ -164,7 +175,8 @@ def proc_labels(labels):
     #         exit(1)
     #     print(np.count_nonzero(labels[i]))
     # print('Checked#######################')
-    return normalize(labels, norm='l1')
+    # return normalize(labels, norm='l1')
+    return normalize_adj_weighted_row(labels, weights=[0, 1.0, 0])
 
 
 def preprocess_features(features):
@@ -179,14 +191,17 @@ def preprocess_features(features):
 
 def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
-    # adj_normalized = normalize_adj(adj + sp.eye(adj.shape[0]))
-    adj_normalized = sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[0.7,
-                                                                           0.3,
-                                                                           0]))
+    adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
+    # adj_normalized = sp.coo_matrix(normalize_adj_weighted_row(adj.todense(), weights=[
+    #     0.7, 0.3, 0]))
+    # x = np.array(normalize_adj(adj + sp.eye(adj.shape[0])).todense())
+    # y = np.array(sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[
+    #         0.7, 0.3, 0])).todense())
     return sparse_to_tuple(adj_normalized)
+    # return sparse_to_tuple(sp.eye(adj.shape[0]))
 
 
-def normalize_adj(adj):
+def normalize_adj_sym(adj):
     """Symmetrically normalize adjacency matrix."""
     # adj is sparse.
     adj = sp.coo_matrix(adj)
@@ -196,8 +211,17 @@ def normalize_adj(adj):
     d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
     return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
 
+def normalize_adj_row(adj):
+    # adj is sparse.
+    adj = sp.coo_matrix(adj)
+    rowsum = np.array(adj.sum(1))
+    d_inv_sqrt = np.power(rowsum, -1).flatten()
+    d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
+    d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
+    return d_mat_inv_sqrt.dot(adj).tocoo()
 
-def normalize_adj_2(adj, weights=[0.7, 0.2, 0.1]):
+
+def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1]):
     # adj is dense.
     def norm(neighbor, d, weight):
         return weight * normalize(np.multiply(neighbor, d), norm='l1')
