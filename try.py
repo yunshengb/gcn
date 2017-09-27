@@ -104,34 +104,41 @@
 #  out = sess.run([loc],feed_dict={X:input})
 #  print (np.array(out))
 
+# import numpy as np
+# from sklearn.preprocessing import normalize
+
+
+# def proc_adj(adj, weights=[0.7, 0.2, 0.1]):
+#     one = adj
+#     self = np.identity(adj.shape[0])
+#     one_with_self = adj + self
+#     temp = one_with_self.dot(one_with_self)
+#     temp = div0(temp, temp)
+#     two = temp - one_with_self
+#     d = one.sum(1)
+#     normalized_adj = np.zeros(adj.shape)
+#     for i, neighbor in enumerate([self, one, two]):
+#         normalized_adj += norm(neighbor, d, weights[i])
+#     return normalized_adj
+
+# def norm(neighbor, d, weight):
+#     return weight * normalize(np.multiply(neighbor, d), norm='l1')
+
+# def div0(a, b):
+#     """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+#     with np.errstate(divide='ignore', invalid='ignore'):
+#         c = np.true_divide( a, b )
+#         c[ ~ np.isfinite( c )] = 0  # -inf inf NaN
+#     return c
+
+# adj = np.array(
+#     [[0, 1, 1, 0, 0], [1, 0, 0, 1, 0], [1, 0, 0, 1, 0], [0, 1, 1, 0, 1],
+#      [0, 0, 0, 1, 0]])
+# adj_normalized = proc_adj(adj)
+
 import numpy as np
-from sklearn.preprocessing import normalize
 
-
-def proc_adj(adj, weights=[0.7, 0.2, 0.1]):
-    one = adj
-    self = np.identity(adj.shape[0])
-    one_with_self = adj + self
-    temp = one_with_self.dot(one_with_self)
-    temp = div0(temp, temp)
-    two = temp - one_with_self
-    d = one.sum(1)
-    normalized_adj = np.zeros(adj.shape)
-    for i, neighbor in enumerate([self, one, two]):
-        normalized_adj += norm(neighbor, d, weights[i])
-    return normalized_adj
-
-def norm(neighbor, d, weight):
-    return weight * normalize(np.multiply(neighbor, d), norm='l1')
-
-def div0(a, b):
-    """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
-    with np.errstate(divide='ignore', invalid='ignore'):
-        c = np.true_divide( a, b )
-        c[ ~ np.isfinite( c )] = 0  # -inf inf NaN
-    return c
-
-adj = np.array(
-    [[0, 1, 1, 0, 0], [1, 0, 0, 1, 0], [1, 0, 0, 1, 0], [0, 1, 1, 0, 1],
-     [0, 0, 0, 1, 0]])
-adj_normalized = proc_adj(adj)
+g1 = np.zeros((1000000, 200))
+g2 = np.zeros((200, 200))
+d = np.zeros((200, 200))
+print(g1.nbytes + g2.nbytes + d.nbytes)

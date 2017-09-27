@@ -1,9 +1,12 @@
 import numpy as np
-import collections, random, os
+import scipy.sparse as sp
+import collections, os
 from utils import load_data
 
 LIMIT = 10000
 DATASET = "flickr"
+
+c = os.path.dirname(os.path.realpath(__file__))
 
 
 def main():
@@ -13,20 +16,21 @@ def main():
 
 class SplitData:
     def __init__(self):
-        self.visited = set()
-        self.adj = None
+        self.core_nodes = set()
         if DATASET == "cora":
-            self.adj = read_cora()
+            adj = read_cora()
+            self.neigh_map = self._gen_neigh_map(adj)
+            self.log = None
         elif DATASET == "flickr":
-            self.adj = read_flickr()
-        self.neigh_map = self._gen_neigh_map()
+            self.neigh_map = read_flickr()
+            self.log = open('log_split_flickr.txt', 'w')
         self.folder_id = 0
         self.total_nodes = 0
         os.system('rm -rf data/{}'.format(DATASET))
 
-    def _gen_neigh_map(self):
+    def _gen_neigh_map(self, adj):
         print('Gen neighbor map: Getting edges')
-        rows, cols = np.where(self.adj == 1)
+        rows, cols = np.where(adj == 1)
         dic = collections.defaultdict(list)
         print('Gen neighbor map: Iterating')
         for idx, row in enumerate(rows):
@@ -35,9 +39,12 @@ class SplitData:
         return dic
 
     def gen_split(self):
-        for i in range(self.adj.shape[0]):
-            if i not in self.visited:
-                self.visited.add(i)
+        for i in range(len(self.neigh_map)):
+            if self.log:
+                self.log.write('@@@@@ {}\n'.format(i))
+            if i not in self.core_nodes:
+                if self.log:
+                    self.log.write('##### {}\n'.format(len(self.core_nodes)))
                 self._BFS(i)
 
     def _BFS(self, i):
@@ -56,19 +63,19 @@ class SplitData:
                 else:
                     self._drop_neighbor(cur)
             if self._need_add_to_core_area(fake_to_real, cur):
-                break
-            else:
                 # Add cur to the core area.
                 self._add_to_id_map(real_to_fake, fake_to_real, cur)
                 real_cnt += 1
-                self.visited.add(cur)
+                self.core_nodes.add(cur)
                 for j in self.neigh_map[cur]:
                     if j not in local_visited:
                         local_visited.add(j)
                         # Add cur's neighbors to the extended area.
                         self._add_to_id_map(real_to_fake, fake_to_real, j)
                         q.append(j)
-
+            else:
+                # Matrix full.
+                break
         self._dump_to_disk(fake_to_real, real_to_fake, real_cnt)
 
     def _add_to_id_map(self, real_to_fake, fake_to_real, id):
@@ -94,36 +101,60 @@ class SplitData:
         raise NotImplementedError()
 
     def _need_add_to_core_area(self, fake_to_real, id):
-        # Two nodes may share the same neighbors, so the following is not\
-        # stringent
-        return len(fake_to_real) + self._get_degree(id) + 1 > LIMIT
+        # Two nodes may share the same neighbors, so the following is not
+        # stringent.
+        return len(fake_to_real) + self._get_degree(id) + 1 <= LIMIT and \
+               id not in self.core_nodes
 
     def _dump_to_disk(self, fake_to_real, real_to_fake, real_cnt):
         path = "data/{}/{}".format(DATASET, self.folder_id)
-        os.system("mkdir -pv {}".format(path))
+        os.system("mkdir -p {}".format(path))
+        self.total_nodes += real_cnt
+        assert(len(self.core_nodes) == self.total_nodes)
+        s = 'Folder {}, {} nodes / {}; total: {}\n'.format(self.folder_id,
+                                                           real_cnt,
+                                                           len(fake_to_real),
+                                                           self.total_nodes)
+        print(s)
+        if self.log:
+            self.log.write(s)
+            self.log.write('{}\n'.format([fake_to_real[i] for i in range(
+                real_cnt)]))
         self.folder_id += 1
         new_adj = np.zeros((len(fake_to_real), len(fake_to_real)))
         for real, fake in real_to_fake.items():
             for real_neigh in self.neigh_map[real]:
                 if real_neigh in real_to_fake:
                     new_adj[fake][real_to_fake[real_neigh]] = 1
-        np.save("{}/adj.npy".format(path), new_adj)
+        sp.save_npz("{}/adj.npz".format(path), sp.csc_matrix(new_adj))
         np.save("{}/dim.npy".format(path), real_cnt)
         np.save("{}/map.npy".format(path), fake_to_real)
-        self.total_nodes += real_cnt
-        print('{} nodes; total: {}'.format(real_cnt, self.total_nodes))
-        print('Nodes: {}\n'.format(real_to_fake.keys()))
+        # print('Nodes: {}\n'.format(real_to_fake.keys()))
+        if self.total_nodes > len(self.neigh_map):
+            raise RuntimeError('self.total_nodes {} > len(self.neigh_map) {}'
+                               ''.format(self.total_nodes, len(self.neigh_map)))
 
 
 def read_cora():
     adj, _, _, _, _, _, _, _ = load_data("cora", 0)
     return adj.todense()
 
+
 def read_flickr():
+    def id(i):
+        return int(i) - 1
+
+    dic = collections.defaultdict(list)
     print('Loading flickr')
-    adj, _, _, _, _, _, _, _ = load_data("flickr", 0)
+    with open('{}/data/Flickr-dataset/data/edges.csv'.format(c)) as f:
+        for line in f:
+            ls = line.rstrip().split(',')
+            x = id(ls[0])
+            y = id(ls[1])
+            dic[x].append(y)
+            dic[y].append(x)
     print('Loaded flickr')
-    return adj.todense()
+    return dic
 
 
 if __name__ == "__main__":
