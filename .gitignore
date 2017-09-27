@@ -108,3 +108,7 @@ ENV/
 events.out.tfevents.*
 
 *.csv
+
+gcn/data/Flickr-dataset/
+gcn/data/cora/
+gcn/data/flickr_save/

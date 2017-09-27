@@ -15,14 +15,15 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
-# 'cora', 'citeseer', 'pubmed', 'syn', 'blog'
-flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
+flags.DEFINE_string('dataset', 'cora', 'Dataset string.')
+# 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr
+flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
-flags.DEFINE_string('desc', 'improved_adj', 'Description of the experiment.')
+flags.DEFINE_string('desc', 'sym_norm', 'Description of the '
+                                                'experiment.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 2001, 'Number of epochs to train.')
+flags.DEFINE_integer('epochs', 201, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 400, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 200, 'Number of units in hidden layer 2.')
 #flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')
@@ -100,7 +101,7 @@ def need_print(epoch=None):
         return False
     if not epoch:
         return True
-    return epoch < 50 or epoch % 50 == 0
+    return epoch < 50 or epoch % 5 == 0
     # return False
 
 # Summary.
@@ -166,6 +167,8 @@ test_cost, test_acc, summary, test_duration = evaluate(features, support,
                                               test_mask, placeholders)
 print("Test set results:", "cost=", "{:.5f}".format(test_cost),
       "time=", "{:.5f}".format(test_duration))
+if FLAGS.embed == 0:
+    print("Accuracy={:.5f}".format(test_acc))
 
 if need_print():
     test_writer.add_summary(summary, FLAGS.epochs-1)

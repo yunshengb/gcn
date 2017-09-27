@@ -175,8 +175,9 @@ def proc_labels(labels):
     #         exit(1)
     #     print(np.count_nonzero(labels[i]))
     # print('Checked#######################')
-    # return normalize(labels, norm='l1')
-    return normalize_adj_weighted_row(labels, weights=[0, 1.0, 0])
+    # return normalize_adj_sym(labels).todense()
+    return normalize(labels, norm='l1')
+    # return normalize_adj_weighted_row(labels, weights=[0, 1.0, 0])
 
 
 def preprocess_features(features):
@@ -191,11 +192,13 @@ def preprocess_features(features):
 
 def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
-    adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
+    adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
+    # adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
     # adj_normalized = sp.coo_matrix(normalize_adj_weighted_row(adj.todense(), weights=[
-    #     0.7, 0.3, 0]))
-    # x = np.array(normalize_adj(adj + sp.eye(adj.shape[0])).todense())
-    # y = np.array(sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[
+        # 0.7, 0.3, 0]))
+    # x = np.array(normalize_adj_sym(adj + sp.eye(adj.shape[0])).todense())
+    # y = np.array(normalize_adj_row(adj + sp.eye(adj.shape[0])).todense())
+    # z = np.array(sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[
     #         0.7, 0.3, 0])).todense())
     return sparse_to_tuple(adj_normalized)
     # return sparse_to_tuple(sp.eye(adj.shape[0]))
