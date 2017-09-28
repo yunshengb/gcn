@@ -15,15 +15,15 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'cora', 'Dataset string.')
+flags.DEFINE_string('dataset', 'flickr', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr
-flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
-flags.DEFINE_string('desc', 'sym_norm', 'Description of the '
+flags.DEFINE_string('desc', 'weighted_row_norm', 'Description of the '
                                                 'experiment.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 201, 'Number of epochs to train.')
+flags.DEFINE_integer('epochs', 301, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 400, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 200, 'Number of units in hidden layer 2.')
 #flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')

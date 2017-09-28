@@ -192,15 +192,17 @@ def preprocess_features(features):
 
 def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
-    adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
+    # adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
     # adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
-    # adj_normalized = sp.coo_matrix(normalize_adj_weighted_row(adj.todense(), weights=[
-        # 0.7, 0.3, 0]))
+    # adj_normalized_new = normalize_adj_weighted_row(adj, weights=[0.7, 0.3,
+    #  0])
+    adj_normalized_old = normalize_adj_weighted_row_save(adj.todense(),
+    weights=[0.7, 0.3, 0])
     # x = np.array(normalize_adj_sym(adj + sp.eye(adj.shape[0])).todense())
     # y = np.array(normalize_adj_row(adj + sp.eye(adj.shape[0])).todense())
     # z = np.array(sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[
     #         0.7, 0.3, 0])).todense())
-    return sparse_to_tuple(adj_normalized)
+    return sparse_to_tuple(adj_normalized_old)
     # return sparse_to_tuple(sp.eye(adj.shape[0]))
 
 
@@ -225,6 +227,32 @@ def normalize_adj_row(adj):
 
 
 def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1]):
+    # adj is sparse.
+    def norm(neighbor, d, weight):
+        x = np.multiply(neighbor, d)
+        x = sp.csr_matrix(x)
+        return weight * normalize(x, norm='l1', axis=1)
+
+    def div0(a, b):
+        """ ignore / 0, div0( [-1, 0, 1], 0 ) -> [0, 0, 0] """
+        with np.errstate(divide='ignore', invalid='ignore'):
+            c = np.true_divide(a, b)
+            c[~ np.isfinite(c)] = 0  # -inf inf NaN
+        return c
+
+    one = adj
+    self = sp.identity(adj.shape[0])
+    one_with_self = adj + self
+    temp = one_with_self.dot(one_with_self)
+    temp = div0(temp, temp)
+    two = sp.csr_matrix(temp - one_with_self)
+    d = sp.csr_matrix(one.sum(1))
+    normalized_adj = np.zeros(adj.shape)
+    for i, neighbor in enumerate([self, one, two]):
+        normalized_adj += norm(neighbor, d, weights[i])
+    return sp.coo_matrix(normalized_adj)
+
+def normalize_adj_weighted_row_save(adj, weights=[0.7, 0.2, 0.1]):
     # adj is dense.
     def norm(neighbor, d, weight):
         return weight * normalize(np.multiply(neighbor, d), norm='l1')
@@ -246,7 +274,7 @@ def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1]):
     normalized_adj = np.zeros(adj.shape)
     for i, neighbor in enumerate([self, one, two]):
         normalized_adj += norm(neighbor, d, weights[i])
-    return normalized_adj
+    return sp.coo_matrix(normalized_adj)
 
 
 def construct_feed_dict(features, support, labels, labels_mask, placeholders,
