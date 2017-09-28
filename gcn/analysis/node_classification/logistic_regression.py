@@ -7,6 +7,7 @@ from sklearn.multiclass import OneVsRestClassifier
 import glob,os,re,sys,collections,pickle
 import numpy as np
 import matplotlib.pyplot as plt
+from combine import *
 
 c_folder = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(c_folder, "../.."))
@@ -28,6 +29,9 @@ class Data_engine:
         elif dataset == "cora":
             self.run_eval = run_cora
             self.run_loss = run_cora_loss
+        elif dataset == "flicker":
+            self.run_eval = run_flicker
+
     def run(self,model, folder = None):
         self.eval = {**self.eval, **self.run_eval(model, folder)}
         self.save_eval()
@@ -108,6 +112,21 @@ class Data_engine:
             elif measure == "acc":
                 self.two_scales(ax, xs, l_xs, base_acc, accs, losses, 'lightcoral', 'lightskyblue', measure)
             plt.savefig(folder + "_" + measure + ".png")
+
+def run_flicker(model):
+    eval = collections.defaultdict(list)
+    data_combiner = Data_combiner("flicker", model)
+    embedding = data_combiner.get_data()
+    labels = np.load(c_folder + "/flicker/data/flicker_labels.npy")
+    print('*'*50)
+    print('Processing model {}'.format(model))
+    acc, f1 = run_one_file_flicker(embedding, labels)
+    eval[(model, "test")] = [acc, f1]
+    return eval
+def run_one_file_flicker(embedding, labels):
+    X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.5)
+    ACC, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
+    return ACC, f1
 
 def run_blog(model):
     print("Load Data")
@@ -382,9 +401,9 @@ if __name__ == '__main__':
     # choose the model to run. Currently support "gcn" and "node2vec"
     # if the folder name is given, it will only run the folder. If not, it will run every single folder under the path:\
     # gcn/gcn/analysis/node_classification/your_dataset/your_data_model
-    data_engine.run("gcn", "gcn_cora_20170910230013")
+    data_engine.run("gcn", "gcn_cora_weighted_row_norm_20170926163554")
     #if the loss data is given, run the loss this way
-    data_engine.run_with_loss('gcn',"gcn_cora_20170910230013")
+    data_engine.run_with_loss('gcn',"gcn_cora_weighted_row_norm_20170926163554")
     # There should be one file under gcn/gcn/analysis/node_classification/your_dataset/node2vec to establish the baseline
     data_engine.run("node2vec")
     # Draw the measurements. Currently support "f1" and "acc"
