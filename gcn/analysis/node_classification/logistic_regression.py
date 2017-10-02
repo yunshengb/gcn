@@ -28,8 +28,8 @@ class Data_engine:
         elif dataset == "cora":
             self.run_eval = run_cora
             self.run_loss = run_cora_loss
-        elif dataset == "flicker":
-            self.run_eval = run_flicker
+        elif dataset == "flickr":
+            self.run_eval = run_flickr
 
     def run(self,model, folder = None):
         self.eval = {**self.eval, **self.run_eval(model, folder)}
@@ -112,9 +112,9 @@ class Data_engine:
                 self.two_scales(ax, xs, l_xs, base_acc, accs, losses, 'lightcoral', 'lightskyblue', measure)
             plt.savefig(folder + "_" + measure + ".png")
 
-def run_flickr(model):
+def run_flickr(model, folder = None):
     eval = collections.defaultdict(list)
-    labels = np.load(c_folder + "/flickr/data/flicker_labels.npy")
+    labels = np.load(c_folder + "/flickr/data/flickr_labels.npy")
     if model == "node2vec":
         path = c_folder + "/flickr/node2vec"
         for file in sort_nicely(glob.glob(path + "/*.npy")):
@@ -124,9 +124,19 @@ def run_flickr(model):
             acc, f1 = run_one_file_flickr(embedding, labels)
             eval[(model, "test")] = [acc, f1]
     return eval
+# def run_one_file_flickr(embedding, labels):
+#     X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.5)
+#     ACC, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
+#     return ACC, f1
+
 def run_one_file_flickr(embedding, labels):
     X_train, X_test, y_train, y_test = train_test_split(embedding, labels, train_size=0.5)
-    ACC, f1 = run_model_sklearn(X_train, y_train, X_test, y_test)
+    classif = OneVsRestClassifier(LogisticRegression(class_weight="balanced"))
+    classif.fit(X_train,y_train)
+    y_pred = classif.predict(X_test)
+    f1 = f1_score(y_test,y_pred, average="macro")
+    ACC = accuracy_score(y_test, y_pred)
+    print("Average accuracy = {}, f1 = {}".format(ACC, f1))
     return ACC, f1
 
 def run_blog(model):
@@ -398,14 +408,14 @@ https://stackoverflow.com/questions/4623446/how-do-you-sort-files-numerically.
 
 if __name__ == '__main__':
     # create a data_engine object with the name of the dataset. Currently support "cora" and "blog"
-    data_engine = Data_engine("cora")
+    data_engine = Data_engine("flickr")
     # choose the model to run. Currently support "gcn" and "node2vec"
     # if the folder name is given, it will only run the folder. If not, it will run every single folder under the path:\
-    # gcn/gcn/analysis/node_classification/your_dataset/your_data_model
-    data_engine.run("gcn", "gcn_cora_weighted_row_norm_20170928084518")
-    #if the loss data is given, run the loss this way
-    data_engine.run_with_loss('gcn',"gcn_cora_weighted_row_norm_20170928084518")
-    # There should be one file under gcn/gcn/analysis/node_classification/your_dataset/node2vec to establish the baseline
+    # # gcn/gcn/analysis/node_classification/your_dataset/your_data_model
+    # data_engine.run("gcn")
+    # #if the loss data is given, run the loss this way
+    # data_engine.run_with_loss('gcn')
+    # # There should be one file under gcn/gcn/analysis/node_classification/your_dataset/node2vec to establish the baseline
     data_engine.run("node2vec")
     # Draw the measurements. Currently support "f1" and "acc"
     data_engine.draw("acc")
