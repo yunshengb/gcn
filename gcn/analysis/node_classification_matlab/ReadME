@@ -1,0 +1,79 @@
+This package includes the implementation of SocialDimension approach to classification with network data.
+
+Related Reference:
+@inproceedings{1557109,
+ author = {Tang, Lei and Liu, Huan},
+ title = {Relational learning via latent social dimensions},
+ booktitle = {KDD '09: Proceedings of the 15th ACM SIGKDD international conference on Knowledge discovery and data mining},
+ year = {2009},
+ isbn = {978-1-60558-495-9},
+ pages = {817--826},
+ location = {Paris, France},
+ doi = {http://doi.acm.org/10.1145/1557019.1557109},
+ publisher = {ACM},
+ address = {New York, NY, USA},
+ }
+
+
+maindriver.m: main driver file.  
+This script might take 10 minutes to finish. 
+You should expect macro/micro-F1 to be around 0.25/0.37 if using modularity maximization, and 0.31/0.44 if using spectral clustering. 
+
+modularity.m: compute the top eigenvectors of modularity matrix given a network.
+
+spectralclustering.m:  compute the top eigenvectors based on spectral clustering
+
+sociodim.m: given the social dimensions, build a svm classifier and make predictions.
+
+evaluate.m: evaluate the performance given prediction scores and the true label
+In order to perform evaluation, you have to mex construct_indictor.c
+An evaluation script testevaluation.m is provided to check whether the evaluation script works.
+
+linearsvm.m: a wrapper code for liblinear
+To bulid the classifier, liblinear package is required. 
+http://www.csie.ntu.edu.tw/~cjlin/liblinear/
+Please add the exectable file for training (train.mex) to the matlab path.
+Current matlab code has been tested on liblinear 1.5. 
+If you use an older version, please uncomment the code between lines 38-44 in linearsvm.m.
+
+For convenience, the exectable files (*.mexa64) for  linux64 are included in the package.
+
+Different methods may give you different performance. If you run the maindriver, please expect the following result for different methods: 
+ 
+Spectral Clustering: 
+                acc: 0.3734
+          precision: [1x39 double]
+             recall: [1x39 double]
+                 F1: [1x39 double]
+    macro_precision: 0.3419
+       macro_recall: 0.3069
+           macro_F1: 0.3125
+    micro_precision: 0.4446
+       micro_recall: 0.4446
+           micro_F1: 0.4446
+
+Modularity Maximization:
+                acc: 0.2919
+          precision: [1x39 double]
+             recall: [1x39 double]
+                 F1: [1x39 double]
+    macro_precision: 0.3206
+       macro_recall: 0.2410
+           macro_F1: 0.2571
+    micro_precision: 0.3703
+       micro_recall: 0.3703
+           micro_F1: 0.3703
+
+EdgePartition: 
+                acc: 0.3055
+          precision: [1x39 double]
+             recall: [1x39 double]
+                 F1: [1x39 double]
+    macro_precision: 0.2921
+       macro_recall: 0.2540
+           macro_F1: 0.2656
+    micro_precision: 0.3770
+       micro_recall: 0.3770
+           micro_F1: 0.3770
+
+Have fun and feel free to contact Lei Tang (L.Tang@asu.edu) if you encounter any problem.
