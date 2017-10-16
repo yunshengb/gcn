@@ -96,14 +96,7 @@ def load_data_from_adj(adj):
     labels = proc_labels(adj)
     labels_ = np.array(labels)
     features = sp.lil_matrix(im)
-    idx_test = range(len(labels))
-    idx_train = range(len(labels))
-    idx_val = range(len(labels))
-    train_mask = sample_mask(idx_train, N)
-    val_mask = sample_mask(idx_val, N)
-    test_mask = sample_mask(idx_test, N)
-    return adj, features, labels, labels, labels, train_mask, \
-           val_mask, test_mask
+    return adj, features, labels, labels, labels
 
 
 def load_data(dataset_str, embed):
@@ -159,19 +152,12 @@ def load_data(dataset_str, embed):
         idx_train = range(len(labels))
         idx_val = range(len(labels))
 
-    train_mask = sample_mask(idx_train, labels.shape[0])
-    val_mask = sample_mask(idx_val, labels.shape[0])
-    test_mask = sample_mask(idx_test, labels.shape[0])
-
     y_train = np.zeros(labels.shape)
     y_val = np.zeros(labels.shape)
     y_test = np.zeros(labels.shape)
-    y_train[train_mask, :] = labels[train_mask, :]
-    y_val[val_mask, :] = labels[val_mask, :]
-    y_test[test_mask, :] = labels[test_mask, :]
 
     if embed == 0:  # no embedding
-        return adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask
+        return adj, features, y_train, y_val, y_test
     else:
         labels = proc_labels(adj.todense())
         if embed == 1 or embed == 2:
@@ -179,8 +165,7 @@ def load_data(dataset_str, embed):
         elif embed == 3:
             features = np.ones([labels.shape[0], 200])
         return select(adj), select(features), select(labels), select(labels), \
-               select(labels), select(train_mask), select(val_mask), select(
-            test_mask)
+               select(labels)
 
 
 def select(a, size=None):
@@ -307,12 +292,11 @@ def get_shape(mat):
         return mat[2]
     return mat.shape
 
-def construct_feed_dict(features, support, labels, labels_mask, placeholders,
+def construct_feed_dict(features, support, labels, placeholders,
                         embed):
     """Construct feed dictionary."""
     feed_dict = dict()
     feed_dict.update({placeholders['labels']: labels})
-    feed_dict.update({placeholders['labels_mask']: labels_mask})
     feed_dict.update({placeholders['features']: features})
     feed_dict.update(
         {placeholders['support'][i]: support[i] for i in range(len(support))})

@@ -106,15 +106,12 @@ class MLP(Model):
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
 
         # Cross entropy error
-        self.loss += masked_softmax_cross_entropy(self.outputs,
-                                                  self.placeholders['labels'],
-                                                  self.placeholders[
-                                                      'labels_mask'])
+        self.loss += softmax_cross_entropy(self.outputs,
+                                           self.placeholders['labels'])
 
     def _accuracy(self):
-        self.accuracy = masked_accuracy(self.outputs,
-                                        self.placeholders['labels'],
-                                        self.placeholders['labels_mask'])
+        self.accuracy = accuracy(self.outputs,
+                                 self.placeholders['labels'])
 
     def _build(self):
         self.layers.append(Dense(input_dim=self.input_dim,
@@ -157,21 +154,18 @@ class GCN(Model):
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
 
         # Cross entropy error
-        loss = masked_softmax_cross_entropy(self.outputs,
-                                            self.placeholders[
-                                                'labels'],
-                                            self.placeholders[
-                                                'labels_mask'],
-                                            model=self)
+        loss = softmax_cross_entropy(self.outputs,
+                                     self.placeholders[
+                                         'labels'],
+                                     model=self)
 
         self.loss += loss
         # self.printer = tf.Print(loss, [loss], message='@@@')
         tf.summary.scalar('cross_entropy', self.loss)
 
     def _accuracy(self):
-        self.accuracy = masked_accuracy(self.outputs,
-                                        self.placeholders['labels'],
-                                        self.placeholders['labels_mask'])
+        self.accuracy = accuracy(self.outputs,
+                                 self.placeholders['labels'])
 
     def _build(self):
 
@@ -179,8 +173,9 @@ class GCN(Model):
                                             output_dim=FLAGS.hidden1,
                                             placeholders=self.placeholders,
                                             act=(
-                                            (lambda x: x) if FLAGS.embed != 0
-                                            else tf.nn.relu),
+                                                (
+                                                lambda x: x) if FLAGS.embed != 0
+                                                else tf.nn.relu),
                                             dropout=True,
                                             sparse_inputs=True,
                                             logging=self.logging))

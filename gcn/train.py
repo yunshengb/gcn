@@ -17,7 +17,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'arxiv', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
-flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc', 'weighted_row_norm', 'Description of the '
@@ -46,7 +46,7 @@ flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 # PRINT_EPOCHES = []
 
 # Load data
-adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = \
+adj, features, y_train, y_val, y_test = \
     load_data(FLAGS.dataset, FLAGS.embed)
 
 # name = '%s_truth' % FLAGS.dataset
@@ -79,7 +79,6 @@ placeholders = {
     'features': tf.sparse_placeholder(tf.float32, shape=tf.constant(features[2],
                                                                     dtype=tf.int64)),
     'labels': tf.placeholder(tf.float32, shape=(None, get_shape(y_train)[1])),
-    'labels_mask': tf.placeholder(tf.int32),
     'dropout': tf.placeholder_with_default(0., shape=()),
     'num_features_nonzero': tf.placeholder(tf.int32),
     # helper variable for sparse dropout
@@ -115,9 +114,9 @@ if need_print():
 
 
 # Define model evaluation function
-def evaluate(features, support, labels, mask, placeholders):
+def evaluate(features, support, labels, placeholders):
     t_test = time.time()
-    feed_dict_val = construct_feed_dict(features, support, labels, mask,
+    feed_dict_val = construct_feed_dict(features, support, labels,
                                         placeholders, FLAGS.embed)
     outs_val = sess.run([model.loss, model.accuracy, merged],
                         feed_dict=feed_dict_val)
@@ -134,7 +133,7 @@ for epoch in range(FLAGS.epochs):
 
     t = time.time()
     # Construct feed dictionary
-    feed_dict = construct_feed_dict(features, support, y_train, train_mask,
+    feed_dict = construct_feed_dict(features, support, y_train,
                                     placeholders, FLAGS.embed)
     # feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
@@ -165,8 +164,7 @@ print("Optimization Finished!")
 
 # Testing
 test_cost, test_acc, summary, test_duration = evaluate(features, support,
-                                                       y_test,
-                                              test_mask, placeholders)
+                                                       y_test, placeholders)
 print("Test set results:", "cost=", "{:.5f}".format(test_cost),
       "time=", "{:.5f}".format(test_duration))
 if FLAGS.embed == 0:
