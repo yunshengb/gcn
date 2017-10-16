@@ -154,7 +154,25 @@ def read_flickr():
             dic[x].append(y)
             dic[y].append(x)
     print('Loaded flickr')
+    indices, values, shape = weighted_row_norm(dic)
     return dic
+
+
+def weighted_row_norm(neighbor_map, weights=[0.7,0.3,0]):
+    print('@@@')
+    N = len(neighbor_map)
+    indices = []
+    values = []
+    shape = np.array([N, N], dtype=np.int64)
+    indices += [(i, i) for i in range(N)]
+    values += [weights[0] for i in range(N)]
+    for i in range(N):
+        norm = np.sum([len(neighbor_map[j]) for j in neighbor_map[i]])
+        for j in neighbor_map[i]:
+            indices.append((i, j))
+            values.append(weights[1] * len(neighbor_map[j]) / norm)
+    print('@@@')
+    return indices, values, shape
 
 
 if __name__ == "__main__":

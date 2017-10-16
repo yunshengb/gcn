@@ -15,15 +15,15 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'flickr', 'Dataset string.')
-# 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr
-flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
+flags.DEFINE_string('dataset', 'arxiv', 'Dataset string.')
+# 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
+flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc', 'weighted_row_norm', 'Description of the '
                                                 'experiment.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 301, 'Number of epochs to train.')
+flags.DEFINE_integer('epochs', 2001, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 400, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 200, 'Number of units in hidden layer 2.')
 #flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')
@@ -78,17 +78,19 @@ placeholders = {
     'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
     'features': tf.sparse_placeholder(tf.float32, shape=tf.constant(features[2],
                                                                     dtype=tf.int64)),
-    'labels': tf.placeholder(tf.float32, shape=(None, y_train.shape[1])),
+    'labels': tf.placeholder(tf.float32, shape=(None, get_shape(y_train)[1])),
     'labels_mask': tf.placeholder(tf.int32),
     'dropout': tf.placeholder_with_default(0., shape=()),
-    'num_features_nonzero': tf.placeholder(tf.int32)
+    'num_features_nonzero': tf.placeholder(tf.int32),
     # helper variable for sparse dropout
+    'output_dim': get_shape(y_train)
 }
 if FLAGS.embed == 3:
     placeholders['features'] = tf.placeholder(tf.float32, shape=(
-        y_train.shape[0], FLAGS.hidden2))
+        get_shape(features)[0], FLAGS.hidden2))
 if FLAGS.embed == 2:
-    placeholders['sims_mask'] = tf.placeholder(tf.float32, shape=y_train.shape)
+    placeholders['sims_mask'] = tf.placeholder(tf.float32,
+                                               shape=get_shape(features))
 
 # Create model
 model = model_func(placeholders, input_dim=features[2][1], logging=True)

@@ -4,6 +4,7 @@ import tensorflow as tf
 def masked_softmax_cross_entropy(preds, labels, mask, model=None):
     """Softmax cross-entropy loss with masking."""
     loss = tf.nn.softmax_cross_entropy_with_logits(logits=preds, labels=labels)
+    x = tf.nn.sampled_softmax_loss
     if model:
         model.preds = preds
         probs = tf.nn.softmax(preds)
