@@ -15,19 +15,21 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'arxiv', 'Dataset string.')
+flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
 flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
-flags.DEFINE_string('desc', 'weighted_row_norm', 'Description of the '
-                                                'experiment.')
+flags.DEFINE_string('desc',
+                    'weighted_adj_alpha_0_7_beta_0_3_inverse_dense_no_2nd_layer',
+                    'Description of the '
+                                                 'experiment.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 2001, 'Number of epochs to train.')
-flags.DEFINE_integer('hidden1', 400, 'Number of units in hidden layer 1.')
+flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 200, 'Number of units in hidden layer 2.')
-#flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')
-flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2|3.')
+# flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')
+flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2.')
 # Plan 1: Dense layer after conv
 # Plan 2: Embedding layer conv
 # Plan 3: No conv
@@ -46,7 +48,7 @@ flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 # PRINT_EPOCHES = []
 
 # Load data
-adj, features, y_train, y_val, y_test = \
+adj, features, y_train, y_val, y_test, need_batch = \
     load_data(FLAGS.dataset, FLAGS.embed)
 
 # name = '%s_truth' % FLAGS.dataset
@@ -56,8 +58,6 @@ adj, features, y_train, y_val, y_test = \
 # exit(1)
 
 # Some preprocessing
-if FLAGS.embed != 3:
-    features = preprocess_features(features)
 if FLAGS.model == 'gcn':
     support = [preprocess_adj(adj)]
     num_supports = 1
@@ -74,36 +74,45 @@ else:
     raise ValueError('Invalid argument for model: ' + str(FLAGS.model))
 
 # Define placeholders
+N = get_shape(adj)[0]
 placeholders = {
     'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
-    'features': tf.sparse_placeholder(tf.float32, shape=tf.constant(features[2],
-                                                                    dtype=tf.int64)),
-    'labels': tf.placeholder(tf.float32, shape=(None, get_shape(y_train)[1])),
     'dropout': tf.placeholder_with_default(0., shape=()),
-    'num_features_nonzero': tf.placeholder(tf.int32),
-    # helper variable for sparse dropout
     'output_dim': get_shape(y_train)
 }
-if FLAGS.embed == 3:
-    placeholders['features'] = tf.placeholder(tf.float32, shape=(
-        get_shape(features)[0], FLAGS.hidden2))
-if FLAGS.embed == 2:
-    placeholders['sims_mask'] = tf.placeholder(tf.float32,
-                                               shape=get_shape(features))
+if need_batch:
+    placeholders['batch'] = tf.placeholder(tf.int32)
+    placeholders['labels'] = tf.placeholder(tf.int32, shape=[None, 1])
+    placeholders['num_data'] = get_shape(adj)[0]
+else:
+    placeholders['labels'] = tf.placeholder(tf.float32, shape=(None, N))
+    if FLAGS.embed == 2:
+        placeholders['sims_mask'] = tf.placeholder(tf.float32,
+                                                   shape=get_shape(adj))
+
 
 # Create model
-model = model_func(placeholders, input_dim=features[2][1], logging=True)
+model = model_func(placeholders, input_dim=N, logging=True)
 
 # Initialize session
-sess = tf.Session()
+session_conf = tf.ConfigProto(
+    device_count={'CPU': 1, 'GPU': 0},
+    allow_soft_placement=True,
+    log_device_placement=False
+)
+
+if FLAGS.dataset == 'flickr':
+    sess = tf.Session(config=session_conf)
+else:
+    sess = tf.Session()
 
 def need_print(epoch=None):
-    if FLAGS.debug:
-        return False
     if not epoch:
         return True
-    return epoch < 50 or epoch % 5 == 0
+    # return epoch < 50 or epoch % 5 == 0
+    return epoch % 10 == 0
     # return False
+
 
 # Summary.
 dir, intermediate_dir, logdir = prepare_exp_dir(FLAGS)
@@ -140,10 +149,10 @@ for epoch in range(FLAGS.epochs):
     if need_print(epoch):
         print_var(sess, feed_dict, model.layers[-1].embeddings,
                   'gcn_%s_emb_%s' % (FLAGS.dataset, epoch), intermediate_dir,
-                  FLAGS.debug, True)
+                  False)
         print_var(sess, feed_dict, model.loss,
                   'gcn_%s_loss_%s' % (FLAGS.dataset, epoch), intermediate_dir,
-                  FLAGS.debug, True)
+                  False)
 
     # Training step
     fetches = [model.opt_op, model.loss, model.accuracy, merged]
@@ -171,4 +180,4 @@ if FLAGS.embed == 0:
     print("Accuracy={:.5f}".format(test_acc))
 
 if need_print():
-    test_writer.add_summary(summary, FLAGS.epochs-1)
+    test_writer.add_summary(summary, FLAGS.epochs - 1)

@@ -1,5 +1,6 @@
 from gcn.inits import *
 import tensorflow as tf
+from neg_sampling import yba_sampled_softmax
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -100,9 +101,6 @@ class Dense(Layer):
         self.featureless = featureless
         self.bias = bias
 
-        # helper variable for sparse dropout
-        self.num_features_nonzero = placeholders['num_features_nonzero']
-
         with tf.variable_scope(self.name + '_vars'):
             self.vars['weights'] = glorot([input_dim, output_dim],
                                           name='weights')
@@ -115,11 +113,6 @@ class Dense(Layer):
     def _call(self, inputs):
         x = inputs
 
-        # dropout
-        if self.sparse_inputs:
-            x = sparse_dropout(x, 1 - self.dropout, self.num_features_nonzero)
-        else:
-            x = tf.nn.dropout(x, 1 - self.dropout)
 
         # transform
         output = dot(x, self.vars['weights'], sparse=self.sparse_inputs)
@@ -150,9 +143,6 @@ class GraphConvolution(Layer):
         self.featureless = featureless
         self.bias = bias
 
-        # helper variable for sparse dropout
-        self.num_features_nonzero = placeholders['num_features_nonzero']
-
         with tf.variable_scope(self.name + '_vars'):
             for i in range(len(self.support)):
                 self.vars['weights_' + str(i)] = glorot([input_dim, output_dim],
@@ -166,12 +156,6 @@ class GraphConvolution(Layer):
 
     def _call(self, inputs):
         x = inputs
-
-        # dropout
-        if self.sparse_inputs:
-            x = sparse_dropout(x, 1 - self.dropout, self.num_features_nonzero)
-        else:
-            x = tf.nn.dropout(x, 1 - self.dropout)
 
         # convolve
         supports = list()
@@ -208,14 +192,13 @@ class Embedding(Layer):
         self.act = act
         self.sparse_inputs = sparse_inputs
 
-        # helper variable for sparse dropout
-        self.num_features_nonzero = placeholders['num_features_nonzero']
 
-        self.sims_mask = placeholders['sims_mask']
-        with tf.variable_scope(self.name + '_vars'):
-            self.vars['orig_mask'] = tf.Variable(
-                tf.ones([output_dim, input_dim]),
-                tf.float32)
+        if 'sims_mask' in placeholders:
+            self.sims_mask = placeholders['sims_mask']
+        else:
+            self.batch = placeholders['batch']
+            self.labels = placeholders['labels']
+            self.num_data = placeholders['num_data']
 
         if self.logging:
             self._log_vars()
@@ -227,21 +210,30 @@ class Embedding(Layer):
     def _call(self, inputs):
         x = inputs
 
-        # dropout
-        if self.sparse_inputs:
-            x = sparse_dropout(x, 1 - self.dropout, self.num_features_nonzero)
-        else:
-            x = tf.nn.dropout(x, 1 - self.dropout)
 
-        # similarity
-        # x = tf.nn.l2_normalize(x, dim=1)
-        # embeddings = tf.multiply(x, self.vars['orig_mask'])  # trainable
-        # embeddings = tf.nn.l2_normalize(embeddings, dim=1)
-        # embeddings = x
-        self.embeddings = x
-        output = tf.matmul(self.embeddings, tf.transpose(self.embeddings))
-        output = tf.multiply(output, self.sims_mask)
-        self.output = output
+        if hasattr(self, 'sims_mask'):
+            # similarity
+            # x = tf.nn.l2_normalize(x, dim=1)
+            # embeddings = tf.multiply(x, self.vars['orig_mask'])  # trainable
+            # embeddings = tf.nn.l2_normalize(embeddings, dim=1)
+            # embeddings = x
+            self.embeddings = x
+            output = tf.matmul(self.embeddings, tf.transpose(self.embeddings))
+            output = tf.multiply(output, self.sims_mask)
+            self.output = output
+        else:
+            self.embeddings = x
+            embed = tf.nn.embedding_lookup(self.embeddings, self.batch)
+            print('num_data', self.num_data)
+            output, labels = yba_sampled_softmax(model=self.model,
+                                                 weights=self.embeddings,
+                                                 inputs=embed,
+                                                 labels=self.labels,
+                                                 num_sampled=10000,
+                                                 num_classes=self.num_data,
+                                                 num_true=1)
+            self.model.labels = labels
+
 
         if self.model:
             var = output

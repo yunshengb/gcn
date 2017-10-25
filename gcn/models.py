@@ -137,7 +137,7 @@ class GCN(Model):
     def __init__(self, placeholders, input_dim, **kwargs):
         super(GCN, self).__init__(**kwargs)
 
-        self.inputs = placeholders['features']
+        self.inputs = None
         self.input_dim = input_dim
         # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
         self.output_dim = placeholders['labels'].get_shape().as_list()[1]
@@ -145,6 +145,9 @@ class GCN(Model):
 
         self.optimizer = tf.train.AdamOptimizer(
             learning_rate=FLAGS.learning_rate)
+
+        # self.optimizer = tf.train.GradientDescentOptimizer(
+        #     learning_rate=FLAGS.learning_rate)
 
         self.build()
 
@@ -154,10 +157,8 @@ class GCN(Model):
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
 
         # Cross entropy error
-        loss = softmax_cross_entropy(self.outputs,
-                                     self.placeholders[
-                                         'labels'],
-                                     model=self)
+        labels_to_use = self.labels if hasattr(self, 'labels') else self.placeholders['labels']
+        loss = softmax_cross_entropy(self.outputs, labels_to_use, model=self)
 
         self.loss += loss
         # self.printer = tf.Print(loss, [loss], message='@@@')
@@ -178,15 +179,16 @@ class GCN(Model):
                                                 else tf.nn.relu),
                                             dropout=True,
                                             sparse_inputs=True,
+                                            featureless=True,
                                             logging=self.logging))
 
-        self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
-                                            output_dim=FLAGS.hidden2 if
-                                            FLAGS.embed != 0 else self.output_dim,
-                                            placeholders=self.placeholders,
-                                            act=lambda x: x,
-                                            dropout=True,
-                                            logging=self.logging))
+        # self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
+        #                                     output_dim=FLAGS.hidden2 if
+        #                                     FLAGS.embed != 0 else self.output_dim,
+        #                                     placeholders=self.placeholders,
+        #                                     act=lambda x: x,
+        #                                     dropout=True,
+        #                                     logging=self.logging))
 
         if FLAGS.embed == 2:
             self.layers.append(Dense(input_dim=FLAGS.hidden2,
@@ -204,7 +206,7 @@ class GCN(Model):
                                          act=lambda x: x,
                                          dropout=True,
                                          logging=self.logging,
-                                         model=None))
+                                         model=self))
         elif FLAGS.embed == 1:
             self.layers.append(Dense(input_dim=FLAGS.hidden2,
                                      output_dim=self.output_dim,

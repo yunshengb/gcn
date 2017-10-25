@@ -136,21 +136,22 @@
 #      [0, 0, 0, 1, 0]])
 # adj_normalized = proc_adj(adj)
 
-# import numpy as np
-#
-# g1 = np.zeros((1000000, 200))
-# g2 = np.zeros((200, 200))
-# d = np.zeros((200, 200))
-# print(g1.nbytes + g2.nbytes + d.nbytes)
+import numpy as np
 
-import scipy.sparse as sp
+l = np.zeros((11880277, 50))
+g1 = np.zeros((80513, 400))
+g2 = np.zeros((400, 200))
+d = np.zeros((200, 200))
+print((l.nbytes + g1.nbytes + g2.nbytes + d.nbytes)/1000000000)
 
-data = sp.lil_matrix((10, 10))
+# import scipy.sparse as sp
 
-data[0][0] = 2
+# data = sp.lil_matrix((10, 10))
+
+# data[0][0] = 2
 
 
-print(data)
+# print(data)
 
-print('@@@@')
+# print('@@@@')
 
