@@ -62,13 +62,13 @@ function [pred] = evaluate_by_ranking_via_instance(pred, Y)
   numlabel = sum(Y,2); % the number of labels for each instance
   clear val;
   
-  %pred = construct_indicator(index, numlabel);
-  %pred = sparse(pred);
+  pred = construct_indicator(index, numlabel);
+  pred = sparse(pred);
   
-  pred = sparse(n,k); 
-   for I = 1:n
-     pred(I, index(I, 1:numlabel(I))) = 1;    
-   end
+%  pred = sparse(n,k); 
+%   for I = 1:n
+%     pred(I, index(I, 1:numlabel(I))) = 1;    
+%   end
   
   
 function [pred] = evaluate_by_ranking_via_label(pred, Y)

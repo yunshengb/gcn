@@ -161,7 +161,7 @@ def _yba_compute_sampled_logits(model,
         #   true_expected_count shape = [batch_size, 1] tensor
         #   sampled_expected_count shape = [num_sampled] tensor
         if sampled_values is None:
-            sampled_values = candidate_sampling_ops.log_uniform_candidate_sampler(
+            sampled_values = candidate_sampling_ops.learned_unigram_candidate_sampler(
                 true_classes=labels,
                 num_true=num_true,
                 num_sampled=num_sampled,
@@ -326,6 +326,8 @@ def yba_sampled_softmax(model,
         remove_accidental_hits=remove_accidental_hits,
         partition_strategy=partition_strategy,
         name=name)
+    model.logits = logits
+    model.labels = labels
     # sampled_losses is a [batch_size] tensor.
     return logits, labels
 

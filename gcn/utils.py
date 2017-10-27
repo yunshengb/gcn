@@ -44,12 +44,12 @@ def sample_mask(idx, l):
 
 
 def load_synthetic_data():
-    # adj = np.array(
-    #     [[0, 1, 1, 0, 0], [1, 0, 0, 1, 0], [1, 0, 0, 1, 0], [0, 1, 1, 0, 1],
-    #      [0, 0, 0, 1, 0]])
     adj = np.array(
-        [[0, 1, 0, 0, 1], [1, 0, 1, 1, 0], [1, 0, 0, 0, 0], [0, 1, 0, 0, 1],
-         [1, 0, 0, 1, 0]])
+        [[0, 1, 1, 0, 0], [1, 0, 0, 1, 0], [1, 0, 0, 1, 0], [0, 1, 1, 0, 1],
+         [0, 0, 0, 1, 0]])
+    #adj = np.array(
+    #    [[0, 1, 1, 0, 0], [1, 0, 0, 0, 1], [1, 0, 0, 0, 1], [0, 0, 0, 0, 1],
+    #    [0, 1, 1, 1, 0]])
     # adj = np.array(
     #     [[0, 0, 0, 1, 0], [0, 0, 0, 1, 1], [0, 0, 0, 1, 1], [1, 1, 1, 0, 0],
     #      [0, 1, 1, 0, 0]])
@@ -67,23 +67,23 @@ def load_synthetic_data():
 
 
 def load_blog_data():
-    # adj = np.load(
-    #     '{}/data/BlogCatalog-dataset/data/blog_adj.npy'.format(
-    # current_folder))
+    adj = np.load(
+        '{}/data/BlogCatalog-dataset/data/blog_adj.npy'.format(
+    current_folder))
 
-    dic = collections.defaultdict(list)
-    print('Loading blog')
-    with open('{}/data/BlogCatalog-dataset/data/edges.csv'.format(
-            current_folder)) as f:
-        for line in f:
-            ls = line.rstrip().split(',')
-            x = id(ls[0])
-            y = id(ls[1])
-            dic[x].append(y)
-            dic[y].append(x)
-    dic = dict(dic)
-    print('Loaded blog')
-    return load_data_from_adj(dic, need_batch=True)
+    # dic = collections.defaultdict(list)
+    # print('Loading blog')
+    # with open('{}/data/BlogCatalog-dataset/data/edges.csv'.format(
+    #         current_folder)) as f:
+    #     for line in f:
+    #         ls = line.rstrip().split(',')
+    #         x = id(ls[0])
+    #         y = id(ls[1])
+    #         dic[x].append(y)
+    #         dic[y].append(x)
+    # dic = dict(dic)
+    # print('Loaded blog')
+    return load_data_from_adj(adj, need_batch=False)
 
 
 def load_flickr_data():
@@ -104,11 +104,17 @@ def load_flickr_data():
         dic = dict(dic)
         print('Loaded flickr')
         save(path, dic)
-    return load_data_from_adj(dic, need_batch=False)
+    return load_data_from_adj(dic, need_batch=True)
 
 def id(i):
     return int(i) - 1
 
+
+def gen_hyper_neighbor_map(neighbor_map):
+    rtn = collections.defaultdict(list)
+    for i, nl in neighbor_map.items():
+        rtn[len(nl)].append(i)
+    return rtn
 
 def load_arxiv_data():
     adj = np.load(
@@ -175,6 +181,7 @@ def load_data(dataset_str, embed):
     labels = np.vstack((ally, ty))
     labels[test_idx_reorder, :] = labels[test_idx_range, :]
 
+
     idx_test = test_idx_range.tolist()
     idx_train = range(len(y))
     idx_val = range(len(y), len(y) + 500)
@@ -196,7 +203,8 @@ def load_data(dataset_str, embed):
             features = sp.lil_matrix(np.identity(labels.shape[0]))
         elif embed == 3:
             features = np.ones([labels.shape[0], 200])
-        return select(adj), select(features), select(labels), select(labels), \
+        return select(adj.todense()), select(features), select(labels), select(
+            labels), \
                select(labels), False
 
 
@@ -213,9 +221,9 @@ def select(a, size=None):
 
 def proc_labels(labels):
     # adj is dense.
-    # zero_diagonal = np.ones(labels.shape)
-    # np.fill_diagonal(zero_diagonal, 0)
-    # labels = np.multiply(labels, zero_diagonal)
+    zero_diagonal = np.ones(labels.shape)
+    np.fill_diagonal(zero_diagonal, 0)
+    labels = np.multiply(labels, zero_diagonal)
     # for i in range(labels.shape[0]):
     #     # if np.count_nonzero(labels[i]) == 0:
     #     #     print('@@@@@')
@@ -232,8 +240,9 @@ def proc_labels(labels):
     if type(labels) is dict:
         return labels
     else:
-        # return normalize(labels, norm='l1')
-        return normalize_adj_weighted_row(labels, weights=[0, 1.0, 0]).todense()
+        return normalize(labels, norm='l1')
+        # return normalize_adj_weighted_row(labels, weights=[0, 1.0,
+# 0]).todense()
 
 
 def preprocess_adj(adj):
@@ -360,11 +369,13 @@ def construct_feed_dict(features, support, labels, placeholders,
         {placeholders['support'][i]: support[i] for i in range(len(support))})
     if need_batch:
         assert (type(labels) is dict)
-        batch, labels = generate_batch(labels)
+        batch, labels, num_true = generate_batch(labels, placeholders[
+            'hyper_neighbor_map'])
         print('batch', batch)
-        print('labels', labels)
+        # print('labels', labels)
         feed_dict.update({placeholders['batch']: batch})
         feed_dict.update({placeholders['labels']: labels})
+        feed_dict.update({placeholders['num_true']: num_true})
     else:
         feed_dict.update({placeholders['labels']: labels})
         if embed == 2:
@@ -378,44 +389,45 @@ def construct_feed_dict(features, support, labels, placeholders,
 
 
 data_index = 0
-max_size = 10000
+max_size = 667969
 
 
-def generate_batch(neighbor_map):
+def generate_batch(neighbor_map, hyper_neighbor_map):
     global data_index
-    batch_size, num_data = get_size(neighbor_map, data_index, max_size)
+    # batch_size, num_data = get_size(neighbor_map, data_index, max_size)
+    size_li = list(hyper_neighbor_map.keys())
+    num_true = size_li[data_index]
+    data_li = hyper_neighbor_map[num_true]
+    batch_size = len(data_li)
+    print('num_true', num_true)
     print('batch_size', batch_size)
-    print('num_data', num_data)
-    batch = np.ndarray(shape=(batch_size), dtype=np.int32)
-    labels = np.ndarray(shape=(batch_size, 1), dtype=np.int32)
-    s = 0
-    for i in range(num_data):
-        id = get_id(neighbor_map, i + data_index)
-        ns = neighbor_map[id]
-        batch[s:s + len(ns)] = id
-        labels[s:s + len(ns), 0] = ns
-        s += len(ns)
-    data_index = (data_index + num_data) % len(neighbor_map)
-    return batch, labels
+    batch = np.array(data_li)
+    labels = np.ndarray(shape=(batch_size, num_true), dtype=np.int32)
+    for i, id in enumerate(data_li):
+        true_neighbors = neighbor_map[id]
+        assert(len(true_neighbors) == num_true)
+        labels[i] = true_neighbors
+    data_index = (data_index + 1) % len(hyper_neighbor_map)
+    return batch, labels, num_true
 
 
-def get_size(neighbor_map, data_index, max_size):
-    size = 0
-    i = data_index
-    cnt = 0
-    while size + len(neighbor_map[i]) <= max_size:
-        size += len(neighbor_map[i])
-        i = incr_index(neighbor_map, i)
-        cnt += 1
-    return size, cnt
-
-
-def incr_index(neighbor_map, idx):
-    return get_id(neighbor_map, idx + 1)
-
-
-def get_id(neighbor_map, idx):
-    return idx % len(neighbor_map)
+# def get_size(neighbor_map, data_index, max_size):
+#     size = 0
+#     i = data_index
+#     cnt = 0
+#     while size + len(neighbor_map[i]) <= max_size:
+#         size += len(neighbor_map[i])
+#         i = incr_index(neighbor_map, i)
+#         cnt += 1
+#     return size, cnt
+#
+#
+# def incr_index(neighbor_map, idx):
+#     return get_id(neighbor_map, idx + 1)
+#
+#
+# def get_id(neighbor_map, idx):
+#     return idx % len(neighbor_map)
 
 
 def chebyshev_polynomials(adj, k):
@@ -462,12 +474,12 @@ def sparse_to_tuple(sparse_mx):
     return sparse_mx
 
 
-def print_var(sess, feed_dict, var, name, intermediate_dir, save=False):
+def print_var(sess, feed_dict, var, name, intermediate_dir):
     # Output variable.
     var = sess.run([var], feed_dict=feed_dict)
     assert (len(var) == 1)
     var = var[0]
-    if save:
+    if not FLAGS.debug:
         fn = '%s/%s.npy' % (intermediate_dir, name)
         print('%s dumped to %s with shape %s' % (name, fn, var.shape))
         np.save(fn, var)

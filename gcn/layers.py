@@ -1,6 +1,7 @@
 from gcn.inits import *
 import tensorflow as tf
 from neg_sampling import yba_sampled_softmax
+from math import ceil
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -113,7 +114,6 @@ class Dense(Layer):
     def _call(self, inputs):
         x = inputs
 
-
         # transform
         output = dot(x, self.vars['weights'], sparse=self.sparse_inputs)
 
@@ -192,13 +192,14 @@ class Embedding(Layer):
         self.act = act
         self.sparse_inputs = sparse_inputs
 
-
         if 'sims_mask' in placeholders:
             self.sims_mask = placeholders['sims_mask']
         else:
             self.batch = placeholders['batch']
             self.labels = placeholders['labels']
             self.num_data = placeholders['num_data']
+            self.num_true = placeholders['num_true']
+            self.num_trues = sorted(list(placeholders['hyper_neighbor_map'].keys()))
 
         if self.logging:
             self._log_vars()
@@ -209,7 +210,6 @@ class Embedding(Layer):
 
     def _call(self, inputs):
         x = inputs
-
 
         if hasattr(self, 'sims_mask'):
             # similarity
@@ -225,15 +225,11 @@ class Embedding(Layer):
             self.embeddings = x
             embed = tf.nn.embedding_lookup(self.embeddings, self.batch)
             print('num_data', self.num_data)
-            output, labels = yba_sampled_softmax(model=self.model,
-                                                 weights=self.embeddings,
-                                                 inputs=embed,
-                                                 labels=self.labels,
-                                                 num_sampled=10000,
-                                                 num_classes=self.num_data,
-                                                 num_true=1)
+            self.w = tf.Variable(
+                tf.random_uniform([self.num_data, 200], -1.0, 1.0))
+            print('num_trues', self.num_trues)
+            output, labels = self.select_op(embed, self.num_trues)
             self.model.labels = labels
-
 
         if self.model:
             var = output
@@ -243,3 +239,24 @@ class Embedding(Layer):
                                           summarize=100)
 
         return output
+
+    def select_op(self, embed, cand_list):
+        if len(cand_list) == 1:
+            return self.sampled_softmax(embed, cand_list[0])
+        mid = ceil(len(cand_list)/2)
+        left = cand_list[0:mid]
+        right = cand_list[mid:]
+        cand = right[0]
+        return tf.cond(tf.less(self.num_true, tf.constant(cand)),
+                       lambda: self.select_op(embed, left),
+                       lambda: self.select_op(embed, right))
+
+
+    def sampled_softmax(self, embed, num_true):
+        return yba_sampled_softmax(model=self.model,
+                                   weights=self.w,
+                                   inputs=embed,
+                                   labels=self.labels,
+                                   num_sampled=200,
+                                   num_classes=self.num_data,
+                                   num_true=num_true)

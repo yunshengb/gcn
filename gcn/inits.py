@@ -12,8 +12,13 @@ def glorot(shape, name=None):
     """Glorot & Bengio (AISTATS 2010) init."""
     init_range = np.sqrt(6.0/(shape[0]+shape[1]))
     initial = tf.random_uniform(shape, minval=-init_range, maxval=init_range, dtype=tf.float32)
-    return tf.Variable(initial, name=name)
-
+    rtn = tf.Variable(initial, name=name)
+    # initial = tf.random_uniform((1, shape[1]), minval=-init_range,
+    #                             maxval=init_range,
+    #                             dtype=tf.float32)
+    # rtn = tf.tile(initial, [shape[0], 1])
+    # rtn = tf.Variable(rtn, name=name)
+    return rtn
 
 def zeros(shape, name=None):
     """All zeros."""

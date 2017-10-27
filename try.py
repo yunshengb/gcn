@@ -136,13 +136,13 @@
 #      [0, 0, 0, 1, 0]])
 # adj_normalized = proc_adj(adj)
 
-import numpy as np
+# import numpy as np
 
-l = np.zeros((11880277, 50))
-g1 = np.zeros((80513, 400))
-g2 = np.zeros((400, 200))
-d = np.zeros((200, 200))
-print((l.nbytes + g1.nbytes + g2.nbytes + d.nbytes)/1000000000)
+# l = np.zeros((11880277, 50))
+# g1 = np.zeros((80513, 400))
+# g2 = np.zeros((400, 200))
+# d = np.zeros((200, 200))
+# print((l.nbytes + g1.nbytes + g2.nbytes + d.nbytes)/1000000000)
 
 # import scipy.sparse as sp
 
@@ -155,3 +155,7 @@ print((l.nbytes + g1.nbytes + g2.nbytes + d.nbytes)/1000000000)
 
 # print('@@@@')
 
+import numpy as np
+np.random.seed(123)
+x = np.random.rand(5,2)
+print(x)

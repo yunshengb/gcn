@@ -1,7 +1,7 @@
 from __future__ import division
 from __future__ import print_function
 
-import time, os
+import time
 import tensorflow as tf
 
 from gcn.utils import *
@@ -15,19 +15,19 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
-# 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
+flags.DEFINE_string('dataset', 'cora', 'Dataset string.')
+# 'cora', 'citeseer', 'pubmed', 'syn', 'c', 'flickr', 'arxiv'
 flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
-                    'weighted_adj_alpha_0_7_beta_0_3_inverse_dense_no_2nd_layer',
+                    'weighted_adj_alpha_0_7_beta_0_3_inverse_dense',
                     'Description of the '
                                                  'experiment.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 2001, 'Number of epochs to train.')
-flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
-flags.DEFINE_integer('hidden2', 200, 'Number of units in hidden layer 2.')
+flags.DEFINE_integer('epochs', 10001, 'Number of epochs to train.')
+flags.DEFINE_integer('hidden1', 256, 'Number of units in hidden layer 1.')
+flags.DEFINE_integer('hidden2', 128, 'Number of units in hidden layer 2.')
 # flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')
 flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2.')
 # Plan 1: Dense layer after conv
@@ -51,11 +51,6 @@ flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 adj, features, y_train, y_val, y_test, need_batch = \
     load_data(FLAGS.dataset, FLAGS.embed)
 
-# name = '%s_truth' % FLAGS.dataset
-# fn = '%s.npy' % name
-# print('%s dumped to %s with shape %s' % (name, fn, y_train.shape))
-# np.save(fn, y_train)
-# exit(1)
 
 # Some preprocessing
 if FLAGS.model == 'gcn':
@@ -82,8 +77,10 @@ placeholders = {
 }
 if need_batch:
     placeholders['batch'] = tf.placeholder(tf.int32)
-    placeholders['labels'] = tf.placeholder(tf.int32, shape=[None, 1])
+    placeholders['labels'] = tf.placeholder(tf.int32, shape=[None, None])
     placeholders['num_data'] = get_shape(adj)[0]
+    placeholders['num_true'] = tf.placeholder(tf.int32, shape=[])
+    placeholders['hyper_neighbor_map'] = gen_hyper_neighbor_map(adj)
 else:
     placeholders['labels'] = tf.placeholder(tf.float32, shape=(None, N))
     if FLAGS.embed == 2:
@@ -107,10 +104,12 @@ else:
     sess = tf.Session()
 
 def need_print(epoch=None):
+    if FLAGS.debug:
+        return False
     if not epoch:
         return True
     # return epoch < 50 or epoch % 5 == 0
-    return epoch % 10 == 0
+    return (epoch < 1000 and epoch % 10 == 0) or epoch % 100 == 0
     # return False
 
 
@@ -148,11 +147,9 @@ for epoch in range(FLAGS.epochs):
 
     if need_print(epoch):
         print_var(sess, feed_dict, model.layers[-1].embeddings,
-                  'gcn_%s_emb_%s' % (FLAGS.dataset, epoch), intermediate_dir,
-                  False)
+                  'gcn_%s_emb_%s' % (FLAGS.dataset, epoch), intermediate_dir)
         print_var(sess, feed_dict, model.loss,
-                  'gcn_%s_loss_%s' % (FLAGS.dataset, epoch), intermediate_dir,
-                  False)
+                  'gcn_%s_loss_%s' % (FLAGS.dataset, epoch), intermediate_dir)
 
     # Training step
     fetches = [model.opt_op, model.loss, model.accuracy, merged]

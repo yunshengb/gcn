@@ -112,3 +112,16 @@ events.out.tfevents.*
 gcn/data/Flickr-dataset/
 gcn/data/cora/
 gcn/data/flickr_save/
+gcn/analysis/daixin/
+gcn/analysis/evaluate.zip
+gcn/analysis/evaluation.zip
+gcn/analysis/evaluation/
+gcn/analysis/free_encoder/
+gcn/analysis/node_classification/eval.pkl
+gcn/analysis/node_classification/scikit-multilearn/
+gcn/analysis/node_classification_matlab/SocioDim.zip
+gcn/analysis/node_classification_matlab/SocioDim/
+gcn/analysis/temp.gif
+gcn/analysis/text8.zip
+gcn/data/ca-GrQc.txt.gz
+
