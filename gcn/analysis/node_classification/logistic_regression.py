@@ -19,7 +19,7 @@ c_folder = os.path.dirname(os.path.realpath(__file__))
 # sys.path.insert(0, os.path.join(c_folder, "../../../../liblinear/python"))
 # from liblinearutil import *
 
-GCN_EXP = "gcn_cora_weighted_row_norm_20170926163554"
+GCN_EXP = "gcn_blog_weighted_adj_alpha_0_8_beta_0_2_inverse_dense_predict_2nd_0_85_0_15_20171030103549"
 GCN_FOLDER = "{}/../../exp/{}/intermediate".format(c_folder, GCN_EXP)
 NODE2VEC_FOLDER = "{}/../../../../node2vec/emb".format(c_folder)
 
@@ -32,7 +32,6 @@ class Data_engine:
         self.run_loss = None
         self.run_eval = None
         self.baseline = (0, 0)
-
         if dataset == "blog":
             self.run_eval = run_blog
             self.run_loss = run_blog_loss

@@ -48,7 +48,7 @@ function [model] = linearsvm(X, Y, C, dual)
   bias = zeros(1,T);
   
   for t=1:T
-    t
+    % t
     y = -1*ones(n, 1);     
     y(Y(:, t)==1)=1;
     mod_ind = train(y, X, paramstr);

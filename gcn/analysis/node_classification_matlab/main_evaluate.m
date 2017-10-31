@@ -1,4 +1,4 @@
-features = load('gcn_blog_emb_10000.mat');
+features = load('gcn_blog_emb_6100.mat');
 features = single(features.arr);
 % features = normr(features);
 %group = load('blogcatalog.mat');
@@ -21,7 +21,7 @@ for t = 1: 5
     [predscore] = SocioDim(V, labels, index_tr, index_te, C);
 
     [perf, pred] = evaluate(predscore, group(index_te, :));
-    disp('Driver program ends!');
+    disp(t);
     macrof1(t) = perf.macro_F1;
     microf1(t) = perf.micro_F1;
 end
