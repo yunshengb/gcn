@@ -23,10 +23,10 @@ flags.DEFINE_string('model', 'gcn',
 flags.DEFINE_string('desc',
                     'supervised_weighted_adj_alpha_0_7_beta_0_3_inverse',
                     'Description of the '
-                    'experiment.')
+	                'experiment.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 2001, 'Number of epochs to train.')
-flags.DEFINE_integer('hidden1', 2, 'Number of units in hidden layer 1.')
+flags.DEFINE_integer('hidden1', 4, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 2, 'Number of units in hidden layer 2.')
 # flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')
 flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2.')
@@ -51,6 +51,7 @@ flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 adj, features, y_train, train_mask, test_ids, need_batch = \
     load_data(FLAGS.dataset, FLAGS.embed)
 
+
 # Some preprocessing
 if FLAGS.model == 'gcn':
     support = [preprocess_adj(adj)]
@@ -73,7 +74,7 @@ placeholders = {
     'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
     'dropout': tf.placeholder_with_default(0., shape=()),
     'output_dim': get_shape(y_train),
-    'labels_mask': tf.placeholder(tf.int32),
+    '': tf.placeholder(tf.int32)
 }
 if need_batch:
     placeholders['batch'] = tf.placeholder(tf.int32)
@@ -82,12 +83,11 @@ if need_batch:
     placeholders['num_true'] = tf.placeholder(tf.int32, shape=[])
     placeholders['hyper_neighbor_map'] = gen_hyper_neighbor_map(adj)
 else:
-    placeholders['labels'] = tf.placeholder(tf.float32, shape=(None,
-                                                               get_shape(
-                                                                   y_train)[1]))
+    placeholders['labels'] = tf.placeholder(tf.float32, shape=(None, N))
     if FLAGS.embed == 2:
         placeholders['sims_mask'] = tf.placeholder(tf.float32,
                                                    shape=get_shape(adj))
+
 
 # Create model
 model = model_func(placeholders, input_dim=N, logging=True)
@@ -103,7 +103,6 @@ if FLAGS.dataset == 'flickr':
     sess = tf.Session(config=session_conf)
 else:
     sess = tf.Session()
-
 
 def need_print(epoch=None):
     if not epoch:
@@ -124,7 +123,7 @@ if need_print():
 # Define model evaluation function
 def evaluate(features, support, labels, placeholders):
     t_test = time.time()
-    feed_dict_val = construct_feed_dict(features, support, labels, train_mask,
+    feed_dict_val = construct_feed_dict(features, support, labels,
                                         placeholders, FLAGS.embed)
     outs_val = sess.run([model.loss, model.accuracy, merged],
                         feed_dict=feed_dict_val)
@@ -141,25 +140,10 @@ for epoch in range(FLAGS.epochs):
 
     t = time.time()
     # Construct feed dictionary
-    feed_dict = construct_feed_dict(features, support, y_train, train_mask,
+    feed_dict = construct_feed_dict(features, support, y_train,
                                     placeholders, FLAGS.embed)
 
-    if need_print(epoch):
-        if FLAGS.embed > 0:
-            print_var(model.layers[-1].embeddings,
-                      'gcn_%s_emb_%s' % (FLAGS.dataset, epoch),
-                      intermediate_dir, sess, feed_dict)
-        else:
-            print_var(tf.nn.embedding_lookup(model.outputs, test_ids),
-                      'gcn_%s_tscores_%s' % (FLAGS.dataset, epoch),
-                      intermediate_dir, sess, feed_dict)
-            if epoch == 0:
-                print_var(np.array(test_ids),
-                          'gcn_%s_tids' % (FLAGS.dataset),
-                          intermediate_dir)
-        print_var(model.loss,
-                  'gcn_%s_loss_%s' % (FLAGS.dataset, epoch), intermediate_dir,
-                  sess, feed_dict)
+
 
     # Training step
     fetches = [model.opt_op, model.loss, model.accuracy, merged]

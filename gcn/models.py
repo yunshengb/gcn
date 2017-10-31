@@ -106,9 +106,8 @@ class MLP(Model):
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
 
         # Cross entropy error
-        self.loss += masked_softmax_cross_entropy(self.outputs,
-                                           self.placeholders['labels'],
-                                                  self.placeholders['labels_mask'])
+        self.loss += softmax_cross_entropy(self.outputs,
+                                           self.placeholders['labels'])
 
     def _accuracy(self):
         self.accuracy = accuracy(self.outputs,
@@ -159,9 +158,7 @@ class GCN(Model):
 
         # Cross entropy error
         labels_to_use = self.labels if hasattr(self, 'labels') else self.placeholders['labels']
-        loss = masked_softmax_cross_entropy(self.outputs, labels_to_use,
-                                            self.placeholders['labels_mask'],
-                                         model=self)
+        loss = softmax_cross_entropy(self.outputs, labels_to_use, model=self)
 
         self.loss += loss
         # self.printer = tf.Print(loss, [loss], message='@@@')
@@ -186,14 +183,13 @@ class GCN(Model):
                                             featureless=True,
                                             logging=self.logging))
 
-        # self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
-        #                                     output_dim=FLAGS.hidden2 if
-        #                                     FLAGS.embed != 0 else self.output_dim,
-        #                                     placeholders=self.placeholders,
-        #                                     act=lambda x: x,
-        #                                     dropout=True,
-        #                                     logging=self.logging))
-
+        self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
+                                            output_dim=FLAGS.hidden2 if
+                                            FLAGS.embed != 0 else self.output_dim,
+                                            placeholders=self.placeholders,
+                                            act=lambda x: x,
+                                            dropout=True,
+                                            logging=self.logging))
 
         if FLAGS.embed == 2:
             self.layers.append(Dense(input_dim=FLAGS.hidden2,

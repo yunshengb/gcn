@@ -5,8 +5,6 @@ import scipy.sparse as sp
 from scipy.sparse.linalg.eigen.arpack import eigsh
 from sklearn.preprocessing import normalize
 import sys, os, datetime, collections
-from random import shuffle
-from math import ceil
 import tensorflow as tf
 
 flags = tf.app.flags
@@ -72,11 +70,6 @@ def load_blog_data():
     adj = np.load(
         '{}/data/BlogCatalog-dataset/data/blog_adj.npy'.format(
     current_folder))
-    labels = None
-    if FLAGS.embed == 0:
-        labels = np.load(
-            '{}/data/BlogCatalog-dataset/data/blog_labels.npy'.format(
-        current_folder))
 
     # dic = collections.defaultdict(list)
     # print('Loading blog')
@@ -90,7 +83,7 @@ def load_blog_data():
     #         dic[y].append(x)
     # dic = dict(dic)
     # print('Loaded blog')
-    return load_data_from_adj(adj, labels, need_batch=False)
+    return load_data_from_adj(adj, need_batch=False)
 
 
 def load_flickr_data():
@@ -138,18 +131,10 @@ def add_common_neighbor(adj):
     return larger
 
 
-def load_data_from_adj(adj, labels=None, need_batch=False):
-    N = get_shape(adj)[0]
-    if labels is None:
-        labels = proc_labels(adj)
-    else:
-        labels = normalize(labels, norm='l1')
+def load_data_from_adj(adj, need_batch=False):
+    labels = proc_labels(adj)
     features = None
-    train_mask = sample_mask(range(N), N)
-    test_ids = list(range(N))
-    shuffle(test_ids)
-    test_ids = test_ids[0:ceil(0.1*N)]
-    return adj, features, labels, train_mask, test_ids, need_batch
+    return adj, features, labels, labels, labels, need_batch
 
 
 def load_data(dataset_str, embed):
@@ -210,18 +195,17 @@ def load_data(dataset_str, embed):
     y_val = np.zeros(labels.shape)
     y_test = np.zeros(labels.shape)
 
-    train_mask = sample_mask(idx_train, labels.shape[0])
-
     if embed == 0:  # no embedding
-        return adj, features, y_train, train_mask, test_idx_range, False
+        return adj, features, y_train, y_val, y_test, False
     else:
         labels = proc_labels(adj.todense())
         if embed == 1 or embed == 2:
             features = sp.lil_matrix(np.identity(labels.shape[0]))
         elif embed == 3:
             features = np.ones([labels.shape[0], 200])
-        return select(adj.todense()), select(features), select(labels), train_mask, \
-               test_idx_range, False
+        return select(adj.todense()), select(features), select(labels), select(
+            labels), \
+               select(labels), False
 
 
 def select(a, size=None):
@@ -257,7 +241,8 @@ def proc_labels(labels):
         return labels
     else:
         return normalize(labels, norm='l1')
-        # return normalize_adj_weighted_row(labels, weights=[0, 1, 0]).todense()
+        # return normalize_adj_weighted_row(labels, weights=[0, 1.0,
+# 0]).todense()
 
 
 def preprocess_adj(adj):
@@ -375,14 +360,13 @@ def get_shape(mat):
     return mat.shape
 
 
-def construct_feed_dict(features, support, labels, labels_mask, placeholders,
+def construct_feed_dict(features, support, labels, placeholders,
                         embed):
     """Construct feed dictionary."""
     need_batch = 'batch' in placeholders
     feed_dict = dict()
     feed_dict.update(
         {placeholders['support'][i]: support[i] for i in range(len(support))})
-    feed_dict.update({placeholders['labels_mask']: labels_mask})
     if need_batch:
         assert (type(labels) is dict)
         batch, labels, num_true = generate_batch(labels, placeholders[
@@ -490,10 +474,11 @@ def sparse_to_tuple(sparse_mx):
     return sparse_mx
 
 
-def print_var(var, name, intermediate_dir, sess=None, feed_dict=None):
+def print_var(sess, feed_dict, var, name, intermediate_dir):
     # Output variable.
-    if sess and feed_dict:
-        var = sess.run(var, feed_dict=feed_dict)
+    var = sess.run([var], feed_dict=feed_dict)
+    assert (len(var) == 1)
+    var = var[0]
     if not FLAGS.debug:
         fn = '%s/%s.npy' % (intermediate_dir, name)
         print('%s dumped to %s with shape %s' % (name, fn, var.shape))
