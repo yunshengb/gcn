@@ -56,7 +56,7 @@ class Model(object):
 
         # Build metrics
         self._loss()
-        self._accuracy()
+        #self._accuracy()
 
         self.opt_op = self.optimizer.minimize(self.loss)
 
@@ -160,7 +160,6 @@ class GCN(Model):
         # Cross entropy error
         labels_to_use = self.labels if hasattr(self, 'labels') else self.placeholders['labels']
         loss = masked_softmax_cross_entropy(self.outputs, labels_to_use,
-                                            self.placeholders['labels_mask'],
                                          model=self)
 
         self.loss += loss
@@ -186,13 +185,13 @@ class GCN(Model):
                                             featureless=True,
                                             logging=self.logging))
 
-        # self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
-        #                                     output_dim=FLAGS.hidden2 if
-        #                                     FLAGS.embed != 0 else self.output_dim,
-        #                                     placeholders=self.placeholders,
-        #                                     act=lambda x: x,
-        #                                     dropout=True,
-        #                                     logging=self.logging))
+        self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
+                                            output_dim=FLAGS.hidden2 if
+                                            FLAGS.embed != 0 else self.output_dim,
+                                            placeholders=self.placeholders,
+                                            act=lambda x: x,
+                                            dropout=True,
+                                            logging=self.logging))
 
 
         if FLAGS.embed == 2:
