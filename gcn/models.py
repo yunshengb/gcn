@@ -56,7 +56,7 @@ class Model(object):
 
         # Build metrics
         self._loss()
-        self._accuracy()
+        #self._accuracy()
 
         self.opt_op = self.optimizer.minimize(self.loss)
 
@@ -158,7 +158,8 @@ class GCN(Model):
 
         # Cross entropy error
         labels_to_use = self.labels if hasattr(self, 'labels') else self.placeholders['labels']
-        loss = softmax_cross_entropy(self.outputs, labels_to_use, model=self)
+        loss = masked_softmax_cross_entropy(self.outputs, labels_to_use,
+                                         model=self)
 
         self.loss += loss
         # self.printer = tf.Print(loss, [loss], message='@@@')

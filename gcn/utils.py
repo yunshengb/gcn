@@ -5,6 +5,8 @@ import scipy.sparse as sp
 from scipy.sparse.linalg.eigen.arpack import eigsh
 from sklearn.preprocessing import normalize
 import sys, os, datetime, collections
+from random import shuffle
+from math import ceil
 import tensorflow as tf
 
 flags = tf.app.flags
@@ -44,10 +46,10 @@ def sample_mask(idx, l):
 
 
 def load_synthetic_data():
-    adj = np.array(
-        [[0, 1, 1, 0, 0], [1, 0, 0, 1, 0], [1, 0, 0, 1, 0], [0, 1, 1, 0, 1],
-         [0, 0, 0, 1, 0]])
-    #adj = np.array(
+    # adj = np.array(
+    #     [[0, 1, 1, 0, 0], [1, 0, 0, 1, 0], [1, 0, 0, 1, 0], [0, 1, 1, 0, 1],
+    #      [0, 0, 0, 1, 0]])
+    # adj = np.array(
     #    [[0, 1, 1, 0, 0], [1, 0, 0, 0, 1], [1, 0, 0, 0, 1], [0, 0, 0, 0, 1],
     #    [0, 1, 1, 1, 0]])
     # adj = np.array(
@@ -63,27 +65,61 @@ def load_synthetic_data():
     #     [[0,1,0],[1,0,1],[0,1,0]])
     # adj = add_common_neighbor(adj)
     # adj = {0: [1, 2], 1: [0, 3], 2: [0, 3], 3: [1, 2, 4], 4: [3]}
+    # adj = np.array(
+    #     [[0, 1, 1, 0, 0, 0, 1, 0], [1, 0, 0, 1, 0, 0, 0, 1],
+    #      [1, 0, 0, 1, 1, 0, 0, 0], [0, 1, 1, 0, 0, 1, 0, 0],
+    #      [0, 0, 1, 0, 0, 1, 1, 0], [0, 0, 0, 1, 1, 0, 0, 1],
+    #      [1, 0, 0, 0, 1, 0, 0, 1], [0, 1, 0, 0, 0, 1, 1, 0]])
+    # adj = np.array(
+    #     [[0, 1, 1, 0, 0, 0, 0, 1], [1, 0, 0, 1, 0, 1, 0, 0],
+    #      [1, 0, 0, 1, 0, 0, 1, 0], [0, 1, 1, 0, 1, 0, 0, 0],
+    #      [0, 0, 0, 1, 0, 1, 1, 0], [0, 1, 0, 0, 1, 0, 0, 1],
+    #      [0, 0, 1, 0, 1, 0, 0, 1], [1, 0, 0, 0, 0, 1, 1, 0]])
+    # adj = np.array(
+    #    [[0, 1, 1, 0, 0, 0, 1, 1], [1, 0, 0, 1, 0, 0, 0, 1],
+    #     [1, 0, 0, 1, 1, 0, 0, 0], [0, 1, 1, 0, 0, 1, 0, 0],
+    #     [0, 0, 1, 0, 0, 1, 1, 0], [0, 0, 0, 1, 1, 0, 0, 1],
+    #     [1, 0, 0, 0, 1, 0, 0, 1], [1, 1, 0, 0, 0, 1, 1, 0]])
+    adj = np.array(
+        [[0, 1, 1, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 0, 0],
+         [1, 0, 0, 1, 0, 0, 1, 0], [0, 1, 1, 0, 1, 0, 0, 0],
+         [0, 1, 0, 1, 0, 1, 1, 0], [0, 1, 0, 0, 1, 0, 0, 1],
+         [0, 0, 1, 0, 1, 0, 0, 1], [1, 0, 0, 0, 0, 1, 1, 0]])
+    # adj = np.array(
+    #    [[0, 1, 1, 0, 0, 0, 0, 1], [1, 0, 0, 1, 0, 1, 0, 0],
+    #     [1, 0, 0, 1, 0, 0, 1, 0], [0, 1, 1, 0, 1, 0, 0, 1],
+    #     [0, 0, 0, 1, 0, 1, 1, 0], [0, 1, 0, 0, 1, 0, 0, 1],
+    #     [0, 0, 1, 0, 1, 0, 0, 1], [1, 0, 0, 1, 0, 1, 1, 0]])
     return load_data_from_adj(adj)
 
 
-def load_blog_data():
-    adj = np.load(
-        '{}/data/BlogCatalog-dataset/data/blog_adj.npy'.format(
-    current_folder))
+def load_blog_data(need_batch=True):
+    labels = None
+    if FLAGS.embed == 0:
+        labels = np.load(
+            '{}/data/BlogCatalog-dataset/data/blog_labels.npy'.format(
+                current_folder))
 
-    # dic = collections.defaultdict(list)
-    # print('Loading blog')
-    # with open('{}/data/BlogCatalog-dataset/data/edges.csv'.format(
-    #         current_folder)) as f:
-    #     for line in f:
-    #         ls = line.rstrip().split(',')
-    #         x = id(ls[0])
-    #         y = id(ls[1])
-    #         dic[x].append(y)
-    #         dic[y].append(x)
-    # dic = dict(dic)
-    # print('Loaded blog')
-    return load_data_from_adj(adj, need_batch=False)
+    if not need_batch:
+        adj = np.load(
+            '{}/data/BlogCatalog-dataset/data/blog_adj.npy'.format(
+                current_folder))
+        return load_data_from_adj(adj, labels, need_batch=False)
+
+    dic = collections.defaultdict(list)
+    print('Loading blog')
+    with open('{}/data/BlogCatalog-dataset/data/edges.csv'.format(
+            current_folder)) as f:
+        for line in f:
+            ls = line.rstrip().split(',')
+            x = id(ls[0])
+            y = id(ls[1])
+            dic[x].append(y)
+            dic[y].append(x)
+    dic = dict(dic)
+    print('Loaded blog')
+
+    return load_data_from_adj(dic, labels, need_batch=True)
 
 
 def load_flickr_data():
@@ -106,6 +142,7 @@ def load_flickr_data():
         save(path, dic)
     return load_data_from_adj(dic, need_batch=True)
 
+
 def id(i):
     return int(i) - 1
 
@@ -116,10 +153,11 @@ def gen_hyper_neighbor_map(neighbor_map):
         rtn[len(nl)].append(i)
     return rtn
 
+
 def load_arxiv_data():
     adj = np.load(
-        '{}/data/arxiv/arxiv_adj.npy'.format(current_folder))
-    adj = add_common_neighbor(adj)
+        '{}/data/arxiv/arxiv_cleaned_hidden.npy'.format(current_folder))
+    # adj = add_common_neighbor(adj)
     return load_data_from_adj(adj)
 
 
@@ -131,10 +169,18 @@ def add_common_neighbor(adj):
     return larger
 
 
-def load_data_from_adj(adj, need_batch=False):
-    labels = proc_labels(adj)
+def load_data_from_adj(adj, labels=None, need_batch=False):
+    N = get_shape(adj)[0]
+    if labels is None:
+        labels = proc_labels(adj)
+    else:
+        labels = normalize(labels, norm='l1')
     features = None
-    return adj, features, labels, labels, labels, need_batch
+    train_mask = sample_mask(range(N), N)
+    test_ids = list(range(N))
+    shuffle(test_ids)
+    test_ids = test_ids[0:ceil(0.1 * N)]
+    return adj, features, labels, train_mask, test_ids, need_batch
 
 
 def load_data(dataset_str, embed):
@@ -181,7 +227,6 @@ def load_data(dataset_str, embed):
     labels = np.vstack((ally, ty))
     labels[test_idx_reorder, :] = labels[test_idx_range, :]
 
-
     idx_test = test_idx_range.tolist()
     idx_train = range(len(y))
     idx_val = range(len(y), len(y) + 500)
@@ -195,17 +240,19 @@ def load_data(dataset_str, embed):
     y_val = np.zeros(labels.shape)
     y_test = np.zeros(labels.shape)
 
+    train_mask = sample_mask(idx_train, labels.shape[0])
+
     if embed == 0:  # no embedding
-        return adj, features, y_train, y_val, y_test, False
+        return adj, features, y_train, train_mask, test_idx_range, False
     else:
         labels = proc_labels(adj.todense())
         if embed == 1 or embed == 2:
             features = sp.lil_matrix(np.identity(labels.shape[0]))
         elif embed == 3:
             features = np.ones([labels.shape[0], 200])
-        return select(adj.todense()), select(features), select(labels), select(
-            labels), \
-               select(labels), False
+        return select(adj.todense()), select(features), select(
+            labels), train_mask, \
+               test_idx_range, False
 
 
 def select(a, size=None):
@@ -221,9 +268,9 @@ def select(a, size=None):
 
 def proc_labels(labels):
     # adj is dense.
-    zero_diagonal = np.ones(labels.shape)
-    np.fill_diagonal(zero_diagonal, 0)
-    labels = np.multiply(labels, zero_diagonal)
+    # zero_diagonal = np.ones(labels.shape)
+    # np.fill_diagonal(zero_diagonal, 0)
+    # labels = np.multiply(labels, zero_diagonal)
     # for i in range(labels.shape[0]):
     #     # if np.count_nonzero(labels[i]) == 0:
     #     #     print('@@@@@')
@@ -240,9 +287,9 @@ def proc_labels(labels):
     if type(labels) is dict:
         return labels
     else:
-        return normalize(labels, norm='l1')
-        # return normalize_adj_weighted_row(labels, weights=[0, 1.0,
-# 0]).todense()
+        # return normalize(labels, norm='l1')
+        return normalize_adj_weighted_row(labels, weights=[0, 1,
+                                                           0]).todense()
 
 
 def preprocess_adj(adj):
@@ -284,7 +331,7 @@ def normalize_adj_row(adj):
 
 def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1], inverse=True):
     if type(adj) is dict:
-        return normalize_adj_weighted_row_from_dict(adj, weights)
+        return normalize_adj_weighted_row_from_dict(adj, weights, inverse)
 
     # adj is dense.
     def norm(neighbor, d, weight):
@@ -313,7 +360,8 @@ def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1], inverse=True):
     return (sp.coo_matrix(normalized_adj))
 
 
-def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0]):
+def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0],
+                                         inverse=True):
     print('@@@ normalize_adj_weighted_row_from_dict')
     path = '{}/data/save/{}_weighted_row_norm.pickle'.format(current_folder,
                                                              FLAGS.dataset)
@@ -328,12 +376,34 @@ def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0]):
     values += [weights[0] for i in range(N)]
     for i in range(N):
         norm = np.sum([len(neighbor_map[j]) for j in neighbor_map[i]])
+        if inverse:
+            norm = np.sum([1 / len(neighbor_map[j]) for j in neighbor_map[i]])
         for j in neighbor_map[i]:
             indices.append((i, j))
             values.append(weights[1] * len(neighbor_map[j]) / norm)
     print('@@@ normalize_adj_weighted_row_from_dict done')
     save(path, (indices, values, shape))
     return indices, values, shape
+
+
+def normalize_batch_labels_weighted_row_from_dict(neighbor_map, batch,
+                                                  weights=[0, 1, 0],
+                                                  inverse=True):
+    def get_norm(neighbor_map, i, inverse):
+        if inverse:
+            return 1 / len(neighbor_map[i])
+        else:
+            return len(neighbor_map[i])
+
+    M = len(batch)
+    N = len(neighbor_map)
+    mat = np.zeros((M, N))
+    for i, real_id in enumerate(batch):
+        norm = np.sum([get_norm(neighbor_map, j, inverse) for j in neighbor_map[
+            real_id]])
+        for j in neighbor_map[real_id]:
+            mat[i][j] = weights[1] * get_norm(neighbor_map, j, inverse) / norm
+    return mat
 
 
 def load(fn):
@@ -360,22 +430,18 @@ def get_shape(mat):
     return mat.shape
 
 
-def construct_feed_dict(features, support, labels, placeholders,
-                        embed):
+def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
+                        embed, need_batch):
     """Construct feed dictionary."""
-    need_batch = 'batch' in placeholders
     feed_dict = dict()
     feed_dict.update(
         {placeholders['support'][i]: support[i] for i in range(len(support))})
     if need_batch:
         assert (type(labels) is dict)
-        batch, labels, num_true = generate_batch(labels, placeholders[
-            'hyper_neighbor_map'])
-        print('batch', batch)
-        # print('labels', labels)
+        batch, batch_labels, sims_mask = generate_batch(adj)
         feed_dict.update({placeholders['batch']: batch})
-        feed_dict.update({placeholders['labels']: labels})
-        feed_dict.update({placeholders['num_true']: num_true})
+        feed_dict.update({placeholders['labels']: batch_labels})
+        feed_dict.update({placeholders['sims_mask']: sims_mask})
     else:
         feed_dict.update({placeholders['labels']: labels})
         if embed == 2:
@@ -389,28 +455,57 @@ def construct_feed_dict(features, support, labels, placeholders,
 
 
 data_index = 0
-max_size = 667969
+round = 0
+batch_size = 10312//2
 
 
-def generate_batch(neighbor_map, hyper_neighbor_map):
-    global data_index
-    # batch_size, num_data = get_size(neighbor_map, data_index, max_size)
-    size_li = list(hyper_neighbor_map.keys())
-    num_true = size_li[data_index]
-    data_li = hyper_neighbor_map[num_true]
-    batch_size = len(data_li)
-    print('num_true', num_true)
-    print('batch_size', batch_size)
-    batch = np.array(data_li)
-    labels = np.ndarray(shape=(batch_size, num_true), dtype=np.int32)
-    for i, id in enumerate(data_li):
-        true_neighbors = neighbor_map[id]
-        assert(len(true_neighbors) == num_true)
-        labels[i] = true_neighbors
-    data_index = (data_index + 1) % len(hyper_neighbor_map)
-    return batch, labels, num_true
+def generate_batch(neighbor_map):
+    global data_index, round
+    N = len(neighbor_map)
+    end = data_index + batch_size
+    if end >= N:
+        end = N
+    batch = list(range(data_index, end))
+    M = len(batch)
+    print('batch_size %s \tround %s' % (M, round))
+    rtn_labels = normalize_batch_labels_weighted_row_from_dict(neighbor_map,
+                                                               batch)
+    sims_mask = np.ones((M, N))
+    for i, j in enumerate(batch):
+        sims_mask[i][j] = -999999999999999999
+    data_index = end
+    if data_index == N:
+        data_index = 0
+        round += 1
+    return batch, rtn_labels, sims_mask
 
 
+# data_index = 0
+# round = 0
+#
+#
+# def generate_batch(neighbor_map, hyper_neighbor_map):
+#     global data_index, round
+#     # batch_size, num_data = get_size(neighbor_map, data_index, max_size)
+#     size_li = list(hyper_neighbor_map.keys())
+#     num_true = size_li[data_index]
+#     data_li = hyper_neighbor_map[num_true]
+#     batch_size = len(data_li)
+#     print('num_true %s \tbatch_size %s \tround %s' % (num_true, batch_size,
+#                                                     round))
+#     batch = np.array(data_li)
+#     labels = np.ndarray(shape=(batch_size, num_true), dtype=np.int32)
+#     for i, id in enumerate(data_li):
+#         true_neighbors = neighbor_map[id]
+#         assert(len(true_neighbors) == num_true)
+#         labels[i] = true_neighbors
+#     data_index += 1
+#     if data_index + 1 == len(hyper_neighbor_map):
+#         round += 1
+#         data_index = 0
+#     return batch, labels, num_true
+
+# max_size = 667969
 # def get_size(neighbor_map, data_index, max_size):
 #     size = 0
 #     i = data_index
@@ -474,11 +569,10 @@ def sparse_to_tuple(sparse_mx):
     return sparse_mx
 
 
-def print_var(sess, feed_dict, var, name, intermediate_dir):
+def print_var(var, name, intermediate_dir, sess=None, feed_dict=None):
     # Output variable.
-    var = sess.run([var], feed_dict=feed_dict)
-    assert (len(var) == 1)
-    var = var[0]
+    if sess and feed_dict:
+        var = sess.run(var, feed_dict=feed_dict)
     if not FLAGS.debug:
         fn = '%s/%s.npy' % (intermediate_dir, name)
         print('%s dumped to %s with shape %s' % (name, fn, var.shape))
