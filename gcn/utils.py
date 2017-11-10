@@ -289,14 +289,15 @@ def proc_labels(labels):
     else:
         # return normalize(labels, norm='l1')
         return normalize_adj_weighted_row(labels, weights=[0, 1,
-                                                           0]).todense()
+                                                           0],
+                                          inverse=False).todense()
 
 
 def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
     # adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
     # adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
-    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.7, 0.3, 0])
+    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.7, 0.3, 0], inverse=False)
     # x = np.array(normalize_adj_sym(adj + sp.eye(adj.shape[0])).todense())
     # y = np.array(normalize_adj_row(adj + sp.eye(adj.shape[0])).todense())
     # z = np.array(sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[
@@ -360,11 +361,21 @@ def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1], inverse=True):
     return (sp.coo_matrix(normalized_adj))
 
 
+def get_norm(neighbor_map, i, inverse):
+    if inverse:
+        return 1 / len(neighbor_map[i])
+    else:
+        return len(neighbor_map[i])
+
+
 def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0],
                                          inverse=True):
     print('@@@ normalize_adj_weighted_row_from_dict')
-    path = '{}/data/save/{}_weighted_row_norm.pickle'.format(current_folder,
-                                                             FLAGS.dataset)
+    path = '{}/data/save/{}_weighted_row_norm_{}_{}.pickle'.format(
+        current_folder,
+        FLAGS.dataset,
+        str(weights), \
+        inverse)
     rtn = load(path)
     if rtn:
         return rtn
@@ -375,12 +386,12 @@ def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0],
     indices += [(i, i) for i in range(N)]
     values += [weights[0] for i in range(N)]
     for i in range(N):
-        norm = np.sum([len(neighbor_map[j]) for j in neighbor_map[i]])
-        if inverse:
-            norm = np.sum([1 / len(neighbor_map[j]) for j in neighbor_map[i]])
+        norm = np.sum(
+            [get_norm(neighbor_map, j, inverse) for j in neighbor_map[i]])
         for j in neighbor_map[i]:
             indices.append((i, j))
-            values.append(weights[1] * len(neighbor_map[j]) / norm)
+            values.append(
+                weights[1] * get_norm(neighbor_map, j, inverse) / norm)
     print('@@@ normalize_adj_weighted_row_from_dict done')
     save(path, (indices, values, shape))
     return indices, values, shape
@@ -388,7 +399,7 @@ def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0],
 
 def normalize_batch_labels_weighted_row_from_dict(neighbor_map, batch,
                                                   weights=[0, 1, 0],
-                                                  inverse=True):
+                                                  inverse=False):
     def get_norm(neighbor_map, i, inverse):
         if inverse:
             return 1 / len(neighbor_map[i])
@@ -456,18 +467,21 @@ def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
 
 data_index = 0
 round = 0
-batch_size = 10312//2
+batch_size = ceil(80513 // 4)
+ids = []
 
 
 def generate_batch(neighbor_map):
-    global data_index, round
+    global data_index, round, ids
     N = len(neighbor_map)
+    if round == 0:
+        ids = list(range(0, N))
     end = data_index + batch_size
     if end >= N:
         end = N
-    batch = list(range(data_index, end))
+    batch = ids[data_index: end]
     M = len(batch)
-    print('batch_size %s \tround %s' % (M, round))
+    print('round %s \tbatch_size %s \t batch %s...' % (round, M, batch[0:5]))
     rtn_labels = normalize_batch_labels_weighted_row_from_dict(neighbor_map,
                                                                batch)
     sims_mask = np.ones((M, N))
@@ -477,6 +491,7 @@ def generate_batch(neighbor_map):
     if data_index == N:
         data_index = 0
         round += 1
+        shuffle(ids)
     return batch, rtn_labels, sims_mask
 
 

@@ -19,9 +19,9 @@ class Model:
 
 def test():
     model = Model()
-    vocabulary_size = 100
-    embedding_size = 10
-    num_sampled = 20  # Number of negative examples to sample.
+    vocabulary_size = 10
+    embedding_size = 2
+    num_sampled = 3  # Number of negative examples to sample.
     num_true = 1
 
     graph = tf.Graph()
@@ -67,14 +67,18 @@ def test():
             #     [[0, 1, 1, 0, 0], [1, 0, 0, 1, 0], [1, 0, 0, 1, 0],
             #      [0, 1, 1, 0, 1], [0, 0, 0, 1, 0]])
             batch_data = np.array(
-                [9, 9, 9, 9, 9])
+                [7, 7, 7, 7, 7])
             batch_labels = np.array([[1], [2], [3], [4], [5]])
             feed_dict = {train_dataset: batch_data, train_labels: batch_labels}
-            _, l, model_logits, model_labels = session.run([optimizer, loss,
-                                                            model.logits,
-                                                            model.labels],
-                                                           feed_dict=feed_dict)
+            _, l, model_logits, model_labels, sampled_values = \
+                session.run([
+                    optimizer, loss,
+                    model.logits,
+                    model.labels,
+                    model.sampled_values],
+                    feed_dict=feed_dict)
             print('loss', l)
+            print('sampled_values', sampled_values)
             if step == 99:
                 x = 5
 
@@ -167,6 +171,7 @@ def _yba_compute_sampled_logits(model,
                 num_sampled=num_sampled,
                 unique=True,
                 range_max=num_classes)
+        model.sampled_values = sampled_values
         # NOTE: pylint cannot tell that 'sampled_values' is a sequence
         # pylint: disable=unpacking-non-sequence
         sampled, true_expected_count, sampled_expected_count = sampled_values

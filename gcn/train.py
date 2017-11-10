@@ -15,13 +15,13 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
+flags.DEFINE_string('dataset', 'flickr', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
-flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
-                    'weighted_adj_alpha_0_7_beta_0_3_inverse',
+                    'weighted_adj_alpha_0_7_beta_0_3_forward',
                     'Description of the '
                     'experiment.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
@@ -50,7 +50,6 @@ flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 # Load data
 adj, features, y_train, train_mask, test_ids, need_batch = \
     load_data(FLAGS.dataset, FLAGS.embed)
-
 
 # Some preprocessing
 if FLAGS.model == 'gcn':
@@ -105,11 +104,10 @@ else:
 
 
 def need_print(epoch=None):
-    return False
     if not epoch:
         return True
     # return epoch < 50 or epoch % 5 == 0
-    return (epoch < 1000 and epoch % 10 == 0) or epoch % 100 == 0
+    return (epoch < 1000 and epoch % 50 == 0) or epoch % 100 == 0
     # return False
 
 
@@ -119,8 +117,6 @@ merged = tf.summary.merge_all()
 if need_print():
     train_writer = tf.summary.FileWriter(logdir + '/train', sess.graph)
     test_writer = tf.summary.FileWriter(logdir + '/test')
-
-
 
 # Init variables
 sess.run(tf.global_variables_initializer())
@@ -158,8 +154,7 @@ for epoch in range(FLAGS.epochs):
         fetches.append(merged)
     outs = sess.run(fetches, feed_dict=feed_dict)
 
-
-    #if np.abs(outs[1] - 1.61800) < 0.0001:
+    # if np.abs(outs[1] - 1.61800) < 0.0001:
     #    print_var(model.layers[-1].embeddings,
     #              '~~~~~gcn_%s_emb_%s' % (FLAGS.dataset, epoch),
     #              intermediate_dir, sess, feed_dict)
