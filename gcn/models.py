@@ -140,7 +140,10 @@ class GCN(Model):
         self.inputs = None
         self.input_dim = input_dim
         # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
-        self.output_dim = placeholders['labels'].get_shape().as_list()[1]
+        if FLAGS.embed == 0:
+            self.output_dim = placeholders['labels'].get_shape().as_list()[1]
+        else:
+            self.output_dim = None # output_dim does not matter
         self.placeholders = placeholders
 
         self.optimizer = tf.train.AdamOptimizer(
@@ -174,17 +177,13 @@ class GCN(Model):
         self.layers.append(GraphConvolution(input_dim=self.input_dim,
                                             output_dim=FLAGS.hidden1,
                                             placeholders=self.placeholders,
-                                            act=(
-                                                (
-                                                    lambda
-                                                        x: x) if FLAGS.embed != 0
-                                                else tf.nn.relu),
+                                            act=tf.nn.relu,
                                             dropout=True,
                                             sparse_inputs=True,
                                             featureless=True,
                                             logging=self.logging))
 
-        self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
+        self.layers.append(Dense(input_dim=FLAGS.hidden1,
                                             output_dim=FLAGS.hidden2 if
                                             FLAGS.embed != 0 else self.output_dim,
                                             placeholders=self.placeholders,

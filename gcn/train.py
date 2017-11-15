@@ -17,7 +17,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'flickr', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
-flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
@@ -77,8 +77,10 @@ placeholders = {
 
 if need_batch:
     placeholders['batch'] = tf.placeholder(tf.int32)
-    placeholders['labels'] = tf.placeholder(tf.float32, shape=[None, None])
-    placeholders['sims_mask'] = tf.placeholder(tf.float32, shape=[None, None])
+    placeholders['pos_labels'] = tf.placeholder(tf.int32)
+    placeholders['neg_labels'] = tf.placeholder(tf.int32)
+    placeholders['labels'] = tf.placeholder(tf.int32)
+    placeholders['num_data'] = get_shape(adj)[0]
 else:
     placeholders['labels'] = tf.placeholder(tf.float32, shape=(None,
                                                                get_shape(
@@ -104,6 +106,7 @@ else:
 
 
 def need_print(epoch=None):
+    return False
     if not epoch:
         return True
     # return epoch < 50 or epoch % 5 == 0

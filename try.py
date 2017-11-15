@@ -155,7 +155,52 @@
 
 # print('@@@@')
 
+# import numpy as np
+# np.random.seed(123)
+# x = np.random.rand(5,2)
+# print(x)
+
+import tensorflow as tf
 import numpy as np
-np.random.seed(123)
-x = np.random.rand(5,2)
-print(x)
+
+input = tf.constant(
+    [[1, 2, 3, 4], [5, 6, 7, 8], [9, 10, 11, 12], [13, 14, 15, 16],
+     [17, 18, 19, 20]])
+batch = tf.constant([[0], [1], [2]])
+pos_labels = tf.constant([[0], [0], [1]])
+neg_labels = tf.constant([[0, 0, 1, 1, 1], [0, 0, 1, 1, 1],
+              [0, 0, 1, 1, 1]])
+
+
+def neg_sampling(input, batch, pos_labels, neg_labels, num_neg=5, embed_dim=4):
+    def generate_batch():
+        return tf.reshape(tf.nn.embedding_lookup(input, batch), shape=(-1, embed_dim,
+                                                                       1))
+
+    def generate_samples():
+        return tf.concat([tf.nn.embedding_lookup(input, pos_labels),
+                          tf.nn.embedding_lookup(input, neg_labels)], 1)
+
+    sims = tf.reshape(tf.matmul(generate_samples(), generate_batch()), shape=(
+        -1, num_neg+1))
+    return sims
+
+xx = tf.squeeze(tf.nn.embedding_lookup(input, batch))
+
+with tf.Session() as sess:
+    sims = sess.run(neg_sampling(input, batch, pos_labels, neg_labels))
+    print('sims\n', sims)
+
+    # print('labels\n', labels)
+    # result = sess.run(samples)
+    # print('samples\n', result)
+    # result = sess.run(sims)
+    # print('sims\n', result)
+    # print('batch\n', sess.run(batch))
+    # # print('x\n', sess.run(x))
+    # # print('y\n', sess.run(y))
+    # print('z\n', sess.run(z).shape)
+    # print('result\n', sess.run(result))
+    # print('final\n', sess.run(final))
+    # print('xx\n', sess.run(xx))
+    # print('xx\n', sess.run(xx).shape)

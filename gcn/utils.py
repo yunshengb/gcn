@@ -297,7 +297,8 @@ def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
     # adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
     # adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
-    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.7, 0.3, 0], inverse=False)
+    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.7, 0.3, 0],
+                                                inverse=False)
     # x = np.array(normalize_adj_sym(adj + sp.eye(adj.shape[0])).todense())
     # y = np.array(normalize_adj_row(adj + sp.eye(adj.shape[0])).todense())
     # z = np.array(sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[
@@ -449,10 +450,16 @@ def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
         {placeholders['support'][i]: support[i] for i in range(len(support))})
     if need_batch:
         assert (type(labels) is dict)
-        batch, batch_labels, sims_mask = generate_batch(adj)
+        batch, pos_labels, neg_labels, labels = generate_batch(labels)
+        print('batch', batch)
+        print('batch', batch.shape)
+        print('pos_labels', pos_labels.shape)
+        print('neg_labels', neg_labels.shape)
+        print('labels', labels.shape)
         feed_dict.update({placeholders['batch']: batch})
-        feed_dict.update({placeholders['labels']: batch_labels})
-        feed_dict.update({placeholders['sims_mask']: sims_mask})
+        feed_dict.update({placeholders['pos_labels']: pos_labels})
+        feed_dict.update({placeholders['neg_labels']: neg_labels})
+        feed_dict.update({placeholders['labels']: labels})
     else:
         feed_dict.update({placeholders['labels']: labels})
         if embed == 2:
@@ -465,79 +472,86 @@ def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
     return feed_dict
 
 
+# data_index = 0
+# round = 0
+# batch_size = ceil(80513 // 4)
+# ids = []
+#
+#
+# def generate_batch(neighbor_map):
+#     global data_index, round, ids
+#     N = len(neighbor_map)
+#     if round == 0:
+#         ids = list(range(0, N))
+#     end = data_index + batch_size
+#     if end >= N:
+#         end = N
+#     batch = ids[data_index: end]
+#     M = len(batch)
+#     print('round %s \tbatch_size %s \t batch %s...' % (round, M, batch[0:5]))
+#     rtn_labels = normalize_batch_labels_weighted_row_from_dict(neighbor_map,
+#                                                                batch)
+#     sims_mask = np.ones((M, N))
+#     for i, j in enumerate(batch):
+#         sims_mask[i][j] = -999999999999999999
+#     data_index = end
+#     if data_index == N:
+#         data_index = 0
+#         round += 1
+#         shuffle(ids)
+#     return batch, rtn_labels, sims_mask
+
+
 data_index = 0
+max_size = 11799765//100
 round = 0
-batch_size = ceil(80513 // 4)
 ids = []
 
 
-def generate_batch(neighbor_map):
+def generate_batch(neighbor_map, num_neg=5):
     global data_index, round, ids
-    N = len(neighbor_map)
     if round == 0:
-        ids = list(range(0, N))
-    end = data_index + batch_size
-    if end >= N:
-        end = N
-    batch = ids[data_index: end]
-    M = len(batch)
-    print('round %s \tbatch_size %s \t batch %s...' % (round, M, batch[0:5]))
-    rtn_labels = normalize_batch_labels_weighted_row_from_dict(neighbor_map,
-                                                               batch)
-    sims_mask = np.ones((M, N))
-    for i, j in enumerate(batch):
-        sims_mask[i][j] = -999999999999999999
-    data_index = end
-    if data_index == N:
+        ids = list(range(0, len(neighbor_map)))
+    batch_size, num_data = get_size(neighbor_map, data_index, max_size)
+    print('round: {} \tbatch_size: {} \t num_data: {}'.format(round,
+                                                              batch_size,
+                                                              num_data))
+    batch = np.zeros(shape=(batch_size, 1))
+    pos_labels = np.zeros(shape=(batch_size, 1))
+    neg_labels = np.zeros(shape=(batch_size, num_neg))
+    s = 0
+    for i in range(num_data):
+        id = get_id(neighbor_map, i + data_index)
+        ns = neighbor_map[id]
+        batch[s:s + len(ns), 0] = id
+        pos_labels[s:s + len(ns), 0] = ns
+        s += len(ns)
+    data_index = data_index + num_data
+    if data_index >= len(neighbor_map):
         data_index = 0
         round += 1
         shuffle(ids)
-    return batch, rtn_labels, sims_mask
+    labels = np.concatenate(
+        [np.ones((batch_size, 1)), np.zeros((batch_size, num_neg
+                                             ))], 1)
+    return batch, pos_labels, neg_labels, labels
 
 
-# data_index = 0
-# round = 0
-#
-#
-# def generate_batch(neighbor_map, hyper_neighbor_map):
-#     global data_index, round
-#     # batch_size, num_data = get_size(neighbor_map, data_index, max_size)
-#     size_li = list(hyper_neighbor_map.keys())
-#     num_true = size_li[data_index]
-#     data_li = hyper_neighbor_map[num_true]
-#     batch_size = len(data_li)
-#     print('num_true %s \tbatch_size %s \tround %s' % (num_true, batch_size,
-#                                                     round))
-#     batch = np.array(data_li)
-#     labels = np.ndarray(shape=(batch_size, num_true), dtype=np.int32)
-#     for i, id in enumerate(data_li):
-#         true_neighbors = neighbor_map[id]
-#         assert(len(true_neighbors) == num_true)
-#         labels[i] = true_neighbors
-#     data_index += 1
-#     if data_index + 1 == len(hyper_neighbor_map):
-#         round += 1
-#         data_index = 0
-#     return batch, labels, num_true
+def get_size(neighbor_map, data_index, max_size):
+    size = 0
+    i = get_id(neighbor_map, data_index)
+    cnt = 0
+    while size + len(neighbor_map[i]) <= max_size:
+        size += len(neighbor_map[i])
+        data_index += 1
+        i = get_id(neighbor_map, data_index % len(neighbor_map))
+        cnt += 1
+    return size, cnt
 
-# max_size = 667969
-# def get_size(neighbor_map, data_index, max_size):
-#     size = 0
-#     i = data_index
-#     cnt = 0
-#     while size + len(neighbor_map[i]) <= max_size:
-#         size += len(neighbor_map[i])
-#         i = incr_index(neighbor_map, i)
-#         cnt += 1
-#     return size, cnt
-#
-#
-# def incr_index(neighbor_map, idx):
-#     return get_id(neighbor_map, idx + 1)
-#
-#
-# def get_id(neighbor_map, idx):
-#     return idx % len(neighbor_map)
+
+def get_id(neighbor_map, idx):
+    global ids
+    return ids[idx % len(neighbor_map)]
 
 
 def chebyshev_polynomials(adj, k):

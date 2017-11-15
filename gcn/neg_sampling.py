@@ -337,5 +337,20 @@ def yba_sampled_softmax(model,
     return logits, labels
 
 
+def neg_sampling(input, batch, pos_labels, neg_labels, num_neg=5,
+                 embed_dim=100):
+    def generate_batch():
+        return tf.reshape(tf.nn.embedding_lookup(input, batch),
+                          shape=(-1, embed_dim, 1))
+
+    def generate_samples():
+        return tf.concat([tf.nn.embedding_lookup(input, pos_labels),
+                          tf.nn.embedding_lookup(input, neg_labels)], 1)
+
+    sims = tf.reshape(tf.matmul(generate_samples(), generate_batch()), shape=(
+        -1, num_neg + 1))
+    return sims
+
+
 if __name__ == '__main__':
     test()

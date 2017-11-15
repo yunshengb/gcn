@@ -1,6 +1,6 @@
 from gcn.inits import *
 import tensorflow as tf
-from neg_sampling import yba_sampled_softmax
+from neg_sampling import yba_sampled_softmax, neg_sampling
 from math import ceil
 
 flags = tf.app.flags
@@ -197,7 +197,9 @@ class Embedding(Layer):
         else:
             self.batch = placeholders['batch']
             self.labels = placeholders['labels']
-            self.sims_mask = placeholders['sims_mask']
+            self.pos_labels = placeholders['pos_labels']
+            self.neg_labels = placeholders['neg_labels']
+            self.num_data = placeholders['num_data']
 
         if self.logging:
             self._log_vars()
@@ -212,12 +214,16 @@ class Embedding(Layer):
         self.embeddings = x
 
         if hasattr(self, 'batch'):
-            embed = tf.nn.embedding_lookup(self.embeddings, self.batch)
+            # embed = tf.nn.embedding_lookup(self.embeddings, self.batch)
+            self.embeddings = x
+            print('num_data', self.num_data)
+            output = neg_sampling(self.embeddings, self.batch, self.pos_labels,
+                                  self.neg_labels)
         else:
             embed = self.embeddings
 
-        output = tf.matmul(embed, tf.transpose(self.embeddings))
-        output = tf.multiply(output, self.sims_mask)
+            output = tf.matmul(embed, tf.transpose(self.embeddings))
+            output = tf.multiply(output, self.sims_mask)
         self.output = output
 
         if self.model:
