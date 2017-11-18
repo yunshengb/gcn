@@ -93,12 +93,13 @@ def load_synthetic_data():
     return load_data_from_adj(adj)
 
 
-def load_blog_data(need_batch=True):
+def load_blog_data(need_batch=False):
     labels = None
     if FLAGS.embed == 0:
         labels = np.load(
             '{}/data/BlogCatalog-dataset/data/blog_labels.npy'.format(
                 current_folder))
+        print('labels.shape', labels.shape)
 
     if not need_batch:
         adj = np.load(

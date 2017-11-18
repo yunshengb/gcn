@@ -11,7 +11,7 @@ def masked_softmax_cross_entropy(preds, labels, mask=None, model=None):
     return tf.reduce_mean(loss)
 
 
-def accuracy(preds, labels):
+def accuracy(preds, labels, mask=None):
     """Accuracy."""
     correct_prediction = tf.equal(tf.argmax(preds, 1), tf.argmax(labels, 1))
     accuracy_all = tf.cast(correct_prediction, tf.float32)

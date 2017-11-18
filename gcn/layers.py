@@ -1,4 +1,4 @@
-from gcn.inits import *
+from inits import *
 import tensorflow as tf
 from neg_sampling import yba_sampled_softmax, neg_sampling
 from math import ceil
