@@ -1,6 +1,7 @@
 import math
 import tensorflow as tf
 import numpy as np
+from random import shuffle
 
 from tensorflow.python.framework import dtypes
 from tensorflow.python.framework import ops
@@ -352,5 +353,49 @@ def neg_sampling(input, batch, pos_labels, neg_labels, num_neg=5,
     return sims
 
 
+class NegSampler(object):
+    def __init__(self, num_neg):
+        self.ptr = 0
+        self.num_neg = num_neg
+        self.round = 0
+
+    def init(self, N):
+        self.li = list(range(N))
+        if N % self.num_neg != 0:
+            need = self.num_neg - N % self.num_neg
+            self.li += list(range(need))
+        assert (len(self.li) % self.num_neg == 0)
+
+    def get_neg(self, pos_labels):
+        cand_list = self.li[self.ptr:self.ptr + self.num_neg]
+        s = (self.ptr + self.num_neg) % len(self.li)
+        for i, cand in enumerate(cand_list):
+            if cand in pos_labels:
+                cand_list[i], s = self._find_next(pos_labels, s)
+        return cand_list
+
+    def increment(self):
+        self.ptr = self.ptr + self.num_neg
+        if self.ptr == len(self.li):
+            self.ptr = 0
+            shuffle(self.li)
+            self.round += 1
+        return self.round
+
+    def _find_next(self, pos_labels, s):
+        while True:
+            cand = self.li[s]
+            if cand not in pos_labels:
+                return cand, (s + 1) % len(self.li)
+            s = (s + 1) % len(self.li)
+
+
 if __name__ == '__main__':
-    test()
+    # test()
+    n = NegSampler(5)
+    n.init(7)
+    for i in range(4):
+        for j in range(7):
+            print(i, n.get_neg([0, 1, 2, 3]))
+        n.increment()
+

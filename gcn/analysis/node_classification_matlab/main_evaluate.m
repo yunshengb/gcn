@@ -1,5 +1,5 @@
-features = load('gcn_blog_emb_6100.mat');
-features = single(features.arr);
+features = load('blog_200d_embedding.mat');
+features = single(features.embedding);
 % features = normr(features);
 %group = load('blogcatalog.mat');
 %group = group.arr;
@@ -19,12 +19,14 @@ for t = 1: 5
     C = 500; % the C parameter in SVM Classifier
     labels = group(index_tr, :); % the labels of nodes for training
     [predscore] = SocioDim(V, labels, index_tr, index_te, C);
-
-    [perf, pred] = evaluate(predscore, group(index_te, :));
+    % save predscore;
+    tlabels = group(index_te, :);
+    % save tlabels;
+    [perf, pred] = evaluate(predscore, tlabels);
     disp(t);
     macrof1(t) = perf.macro_F1;
     microf1(t) = perf.micro_F1;
 end
 
-microf1 = mean(microf1)
-macrof1 = mean(macrof1)
+micro_f1 = mean(microf1)
+macro_f1 = mean(macrof1)

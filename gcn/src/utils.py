@@ -1,3 +1,4 @@
+from __future__ import division
 import numpy as np
 import pickle as pkl
 import networkx as nx
@@ -8,6 +9,7 @@ import sys, os, datetime, collections
 from random import shuffle
 from math import ceil
 import tensorflow as tf
+from neg_sampling import NegSampler
 
 flags = tf.app.flags
 FLAGS = flags.FLAGS
@@ -16,7 +18,9 @@ current_folder = os.path.dirname(os.path.realpath(__file__))
 
 
 def prepare_exp_dir(flags):
-    dir = 'exp/gcn_%s%s_%s' % (flags.dataset, '_%s' % flags.desc if flags.desc
+    dir = '%s/../exp/gcn_%s%s_%s' % (current_folder, flags.dataset, '_%s' %
+                                                                    flags.desc if
+    flags.desc
     else '', datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
     intermediate_dir = '%s/intermediate' % dir
     logdir = '%s/log' % dir
@@ -93,22 +97,22 @@ def load_synthetic_data():
     return load_data_from_adj(adj)
 
 
-def load_blog_data(need_batch=True):
+def load_blog_data(need_batch=False):
     labels = None
     if FLAGS.embed == 0:
         labels = np.load(
-            '{}/data/BlogCatalog-dataset/data/blog_labels.npy'.format(
+            '{}/../data/BlogCatalog-dataset/data/blog_labels.npy'.format(
                 current_folder))
 
     if not need_batch:
         adj = np.load(
-            '{}/data/BlogCatalog-dataset/data/blog_adj.npy'.format(
+            '{}/../data/BlogCatalog-dataset/data/blog_hidden.npy'.format(
                 current_folder))
         return load_data_from_adj(adj, labels, need_batch=False)
 
     dic = collections.defaultdict(list)
     print('Loading blog')
-    with open('{}/data/BlogCatalog-dataset/data/edges.csv'.format(
+    with open('{}/../data/BlogCatalog-dataset/data/edges.csv'.format(
             current_folder)) as f:
         for line in f:
             ls = line.rstrip().split(',')
@@ -123,13 +127,13 @@ def load_blog_data(need_batch=True):
 
 
 def load_flickr_data():
-    path = '{}/data/save/{}_neighbor_map.pickle'.format(current_folder,
+    path = '{}/../data/save/{}_neighbor_map.pickle'.format(current_folder,
                                                         FLAGS.dataset)
     dic = load(path)
     if not dic:
         dic = collections.defaultdict(list)
         print('Loading flickr')
-        with open('{}/data/Flickr-dataset/data/edges.csv'.format(
+        with open('{}/../data/Flickr-dataset/data/edges.csv'.format(
                 current_folder)) as f:
             for line in f:
                 ls = line.rstrip().split(',')
@@ -156,7 +160,7 @@ def gen_hyper_neighbor_map(neighbor_map):
 
 def load_arxiv_data():
     adj = np.load(
-        '{}/data/arxiv/arxiv_cleaned_hidden.npy'.format(current_folder))
+        '{}/../data/arxiv/arxiv_cleaned_hidden.npy'.format(current_folder))
     # adj = add_common_neighbor(adj)
     return load_data_from_adj(adj)
 
@@ -179,7 +183,7 @@ def load_data_from_adj(adj, labels=None, need_batch=False):
     train_mask = sample_mask(range(N), N)
     test_ids = list(range(N))
     shuffle(test_ids)
-    test_ids = test_ids[0:ceil(0.1 * N)]
+    test_ids = test_ids[0:int(ceil(0.1 * N))]
     return adj, features, labels, train_mask, test_ids, need_batch
 
 
@@ -196,7 +200,7 @@ def load_data(dataset_str, embed):
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
     for i in range(len(names)):
-        with open("{}/data/ind.{}.{}".format(current_folder, dataset_str,
+        with open("{}/../data/ind.{}.{}".format(current_folder, dataset_str,
                                              names[i]), 'rb') as f:
             if sys.version_info > (3, 0):
                 objects.append(pkl.load(f, encoding='latin1'))
@@ -205,7 +209,7 @@ def load_data(dataset_str, embed):
 
     x, y, tx, ty, allx, ally, graph = tuple(objects)
     test_idx_reorder = parse_index_file(
-        "{}/data/ind.{}.test.index".format(current_folder, dataset_str))
+        "{}/../data/ind.{}.test.index".format(current_folder, dataset_str))
     test_idx_range = np.sort(test_idx_reorder)
 
     if dataset_str == 'citeseer':
@@ -297,7 +301,7 @@ def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
     # adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
     # adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
-    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.7, 0.3, 0],
+    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.8, 0.2, 0],
                                                 inverse=False)
     # x = np.array(normalize_adj_sym(adj + sp.eye(adj.shape[0])).todense())
     # y = np.array(normalize_adj_row(adj + sp.eye(adj.shape[0])).todense())
@@ -362,8 +366,10 @@ def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1], inverse=True):
     return (sp.coo_matrix(normalized_adj))
 
 
-def get_norm(neighbor_map, i, inverse):
+def get_norm(neighbor_map, i, inverse, pp=False):
     if inverse:
+        if pp:
+            print('{} {} {}'.format(1, len(neighbor_map[i]) , 1 / len(neighbor_map[i])))
         return 1 / len(neighbor_map[i])
     else:
         return len(neighbor_map[i])
@@ -372,7 +378,7 @@ def get_norm(neighbor_map, i, inverse):
 def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0],
                                          inverse=True):
     print('@@@ normalize_adj_weighted_row_from_dict')
-    path = '{}/data/save/{}_weighted_row_norm_{}_{}.pickle'.format(
+    path = '{}/../data/save/{}_weighted_row_norm_{}_{}.pickle'.format(
         current_folder,
         FLAGS.dataset,
         str(weights), \
@@ -389,6 +395,8 @@ def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0],
     for i in range(N):
         norm = np.sum(
             [get_norm(neighbor_map, j, inverse) for j in neighbor_map[i]])
+        if norm == 0:
+            print('{} neighbor {} has norms {}'.format(i, neighbor_map[i], [get_norm(neighbor_map, j, inverse, pp=True) for j in neighbor_map[i]]))
         for j in neighbor_map[i]:
             indices.append((i, j))
             values.append(
@@ -401,12 +409,15 @@ def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0],
 def normalize_batch_labels_weighted_row_from_dict(neighbor_map, batch,
                                                   weights=[0, 1, 0],
                                                   inverse=False):
-    def get_norm(neighbor_map, i, inverse):
-        if inverse:
-            return 1 / len(neighbor_map[i])
-        else:
-            return len(neighbor_map[i])
-
+    print('@@@ normalize_batch_labels_weighted_row_from_dict')
+    path = '{}/../data/save/{}_weighted_row_norm_{}_{}_batch_{}.pickle'.format(
+        current_folder,
+        FLAGS.dataset,
+        str(weights), \
+        inverse, len(batch))
+    rtn = load(path)
+    if rtn:
+        return rtn
     M = len(batch)
     N = len(neighbor_map)
     mat = np.zeros((M, N))
@@ -415,6 +426,8 @@ def normalize_batch_labels_weighted_row_from_dict(neighbor_map, batch,
             real_id]])
         for j in neighbor_map[real_id]:
             mat[i][j] = weights[1] * get_norm(neighbor_map, j, inverse) / norm
+    print('@@@ normalize_batch_labels_weighted_row_from_dict done')
+    # save(path, mat)
     return mat
 
 
@@ -451,11 +464,11 @@ def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
     if need_batch:
         assert (type(labels) is dict)
         batch, pos_labels, neg_labels, labels = generate_batch(labels)
-        print('batch', batch)
+        # print('batch', batch)
         print('batch', batch.shape)
-        print('pos_labels', pos_labels.shape)
-        print('neg_labels', neg_labels.shape)
-        print('labels', labels.shape)
+        # print('pos_labels', pos_labels)
+        print('neg_labels', neg_labels)
+        # print('labels', labels.shape)
         feed_dict.update({placeholders['batch']: batch})
         feed_dict.update({placeholders['pos_labels']: pos_labels})
         feed_dict.update({placeholders['neg_labels']: neg_labels})
@@ -503,15 +516,18 @@ def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
 
 
 data_index = 0
-max_size = 11799765//100
+# max_size = 11799765 // 4
+max_size = 667969//2
 round = 0
 ids = []
+neg_sampler = NegSampler(num_neg=5)
 
 
 def generate_batch(neighbor_map, num_neg=5):
     global data_index, round, ids
     if round == 0:
         ids = list(range(0, len(neighbor_map)))
+        neg_sampler.init(len(neighbor_map))
     batch_size, num_data = get_size(neighbor_map, data_index, max_size)
     print('round: {} \tbatch_size: {} \t num_data: {}'.format(round,
                                                               batch_size,
@@ -525,7 +541,10 @@ def generate_batch(neighbor_map, num_neg=5):
         ns = neighbor_map[id]
         batch[s:s + len(ns), 0] = id
         pos_labels[s:s + len(ns), 0] = ns
+        neg_labels[s:s + len(ns)] = neg_sampler.get_neg(neighbor_map[id])
         s += len(ns)
+        neg_round = neg_sampler.increment()
+        # print('@@@@@neg_round', neg_round)
     data_index = data_index + num_data
     if data_index >= len(neighbor_map):
         data_index = 0

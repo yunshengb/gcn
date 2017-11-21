@@ -9,7 +9,7 @@ c = os.path.dirname(os.path.realpath(__file__))
 # NP_MAT = '../../data/BlogCatalog-dataset/data/blog_labels.npy'
 # MATLAB_MAT = 'blog_labels.mat'
 
-NP_MAT = 'blog_labels.npy'
+NP_MAT = 'line_blog.npy'ma
 # MATLAB_MAT = 'blog_emb_pq_grid_search/*.mat'
 
 # NP_MAT = '../../data/arxiv/arxiv_adj.npy'

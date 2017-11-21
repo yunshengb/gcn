@@ -4,8 +4,8 @@ from __future__ import print_function
 import time
 import tensorflow as tf
 
-from gcn.utils import *
-from gcn.models import GCN, MLP
+from utils import *
+from models import GCN, MLP
 
 # Set random seed
 seed = 123
@@ -15,17 +15,17 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'flickr', 'Dataset string.')
+flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
-flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
-                    'weighted_adj_alpha_0_7_beta_0_3_forward',
+                    'ns_sym',
                     'Description of the '
                     'experiment.')
-flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
-flags.DEFINE_integer('epochs', 100001, 'Number of epochs to train.')
+flags.DEFINE_float('learning_rate', 0.001, 'Initial learning rate.')
+flags.DEFINE_integer('epochs', 10001, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 100, 'Number of units in hidden layer 2.')
 # flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')
@@ -50,6 +50,7 @@ flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 # Load data
 adj, features, y_train, train_mask, test_ids, need_batch = \
     load_data(FLAGS.dataset, FLAGS.embed)
+
 
 # Some preprocessing
 if FLAGS.model == 'gcn':
@@ -82,12 +83,10 @@ if need_batch:
     placeholders['labels'] = tf.placeholder(tf.int32)
     placeholders['num_data'] = get_shape(adj)[0]
 else:
-    placeholders['labels'] = tf.placeholder(tf.float32, shape=(None,
-                                                               get_shape(
-                                                                   y_train)[1]))
+    placeholders['labels'] = tf.placeholder(tf.float32, shape=(N, N))
     if FLAGS.embed == 2:
         placeholders['sims_mask'] = tf.placeholder(tf.float32,
-                                                   shape=get_shape(adj))
+                                                   shape=(N, N))
 
 # Create model
 model = model_func(placeholders, input_dim=N, logging=True)
@@ -106,11 +105,11 @@ else:
 
 
 def need_print(epoch=None):
-    return False
+    # return False
     if not epoch:
         return True
     # return epoch < 50 or epoch % 5 == 0
-    return (epoch < 1000 and epoch % 50 == 0) or epoch % 100 == 0
+    return epoch % 100 == 0
     # return False
 
 
@@ -155,6 +154,8 @@ for epoch in range(FLAGS.epochs):
     fetches = [model.opt_op, model.loss, merged]
     if need_print(epoch):
         fetches.append(merged)
+    # print('###placeholders', placeholders)
+    # print('$$$feed_dict', feed_dict)
     outs = sess.run(fetches, feed_dict=feed_dict)
 
     # if np.abs(outs[1] - 1.61800) < 0.0001:
