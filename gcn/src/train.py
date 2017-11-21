@@ -17,7 +17,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
-flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
@@ -29,7 +29,7 @@ flags.DEFINE_integer('epochs', 10001, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 100, 'Number of units in hidden layer 2.')
 # flags.DEFINE_integer('hidden3', 100, 'Number of units in hidden layer 3.')
-flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2.')
+flags.DEFINE_integer('embed', 0, '0: No embedding; 1|2.')
 # Plan 1: Dense layer after conv
 # Plan 2: Embedding layer conv
 # Plan 3: No conv
@@ -76,15 +76,20 @@ placeholders = {
     'output_dim': get_shape(y_train),
 }
 
+if FLAGS.embed == 0:
+    placeholders['train_mask'] = tf.placeholder(tf.int32, shape=(N,))
+    placeholders['labels'] = tf.placeholder(tf.float32, shape=(None, y_train.shape[1]))
+
 if need_batch:
     placeholders['batch'] = tf.placeholder(tf.int32)
     placeholders['pos_labels'] = tf.placeholder(tf.int32)
     placeholders['neg_labels'] = tf.placeholder(tf.int32)
-    placeholders['labels'] = tf.placeholder(tf.int32)
+    if FLAGS.embed != 0:
+        placeholders['labels'] = tf.placeholder(tf.int32)
     placeholders['num_data'] = get_shape(adj)[0]
 else:
-    placeholders['labels'] = tf.placeholder(tf.float32, shape=(N, N))
     if FLAGS.embed == 2:
+        placeholders['labels'] = tf.placeholder(tf.float32, shape=(N, N))
         placeholders['sims_mask'] = tf.placeholder(tf.float32,
                                                    shape=(N, N))
 
@@ -138,10 +143,6 @@ for epoch in range(FLAGS.epochs):
             print_var(model.layers[-1].embeddings,
                       'gcn_%s_emb_%s' % (FLAGS.dataset, epoch),
                       intermediate_dir, sess, feed_dict)
-        else:
-            print_var(tf.nn.embedding_lookup(model.outputs, test_ids),
-                      'gcn_%s_tscores_%s' % (FLAGS.dataset, epoch),
-                      intermediate_dir, sess, feed_dict)
             if epoch == 0:
                 print_var(np.array(test_ids),
                           'gcn_%s_tids' % (FLAGS.dataset),
@@ -152,6 +153,8 @@ for epoch in range(FLAGS.epochs):
 
     # Training step
     fetches = [model.opt_op, model.loss, merged]
+    if FLAGS.embed == 0:
+        fetches.append(tf.nn.embedding_lookup(model.layers[-1].outputs, test_ids))
     if need_print(epoch):
         fetches.append(merged)
     # print('###placeholders', placeholders)
@@ -168,8 +171,12 @@ for epoch in range(FLAGS.epochs):
           "{:.5f}".format(outs[1]),
           "time=",
           "{:.5f}".format(time.time() - t))
+    if FLAGS.embed == 0:
+        preds = outs[3]
+        print('preds', preds.shape)
+
 
     if need_print(epoch):
-        train_writer.add_summary(outs[-1], epoch)
+        train_writer.add_summary(outs[2], epoch)
 
 print("Optimization Finished!")

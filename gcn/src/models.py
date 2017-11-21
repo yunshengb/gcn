@@ -161,7 +161,7 @@ class GCN(Model):
 
         # Cross entropy error
         labels_to_use = self.labels if hasattr(self, 'labels') else self.placeholders['labels']
-        loss = masked_softmax_cross_entropy(self.outputs, labels_to_use,
+        loss = masked_softmax_cross_entropy(self.outputs, labels_to_use, self.placeholders['train_mask'],
                                          model=self)
 
         self.loss += loss
@@ -183,7 +183,7 @@ class GCN(Model):
                                             featureless=True,
                                             logging=self.logging))
 
-        self.layers.append(Dense(input_dim=FLAGS.hidden1,
+        self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
                                             output_dim=FLAGS.hidden2 if
                                             FLAGS.embed != 0 else self.output_dim,
                                             placeholders=self.placeholders,

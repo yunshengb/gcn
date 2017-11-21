@@ -77,6 +77,7 @@ class Layer(object):
             outputs = self._call(inputs)
             if self.logging:
                 tf.summary.histogram(self.name + '/outputs', outputs)
+            self.outputs = outputs
             return outputs
 
     def _log_vars(self):

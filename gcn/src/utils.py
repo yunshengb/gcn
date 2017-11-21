@@ -106,9 +106,9 @@ def load_blog_data(need_batch=False):
 
     if not need_batch:
         adj = np.load(
-            '{}/../data/BlogCatalog-dataset/data/blog_hidden.npy'.format(
+            '{}/../data/BlogCatalog-dataset/data/blog_adj.npy'.format(
                 current_folder))
-        return load_data_from_adj(adj, labels, need_batch=False)
+        return load_data_from_adj(adj, labels, need_batch)
 
     dic = collections.defaultdict(list)
     print('Loading blog')
@@ -123,7 +123,7 @@ def load_blog_data(need_batch=False):
     dic = dict(dic)
     print('Loaded blog')
 
-    return load_data_from_adj(dic, labels, need_batch=True)
+    return load_data_from_adj(dic, labels, need_batch)
 
 
 def load_flickr_data():
@@ -183,7 +183,10 @@ def load_data_from_adj(adj, labels=None, need_batch=False):
     train_mask = sample_mask(range(N), N)
     test_ids = list(range(N))
     shuffle(test_ids)
-    test_ids = test_ids[0:int(ceil(0.1 * N))]
+    test_ids = test_ids[0:int(ceil(0.1 * N))] # 10% testing
+    train_mask.fill(1)
+    for id in test_ids:
+        train_mask[id] = 0
     return adj, features, labels, train_mask, test_ids, need_batch
 
 
@@ -461,8 +464,10 @@ def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
     feed_dict = dict()
     feed_dict.update(
         {placeholders['support'][i]: support[i] for i in range(len(support))})
+    if FLAGS.embed == 0:
+        feed_dict.update({placeholders['train_mask']: labels_mask})
     if need_batch:
-        assert (type(labels) is dict)
+        # assert (type(labels) is dict)
         batch, pos_labels, neg_labels, labels = generate_batch(labels)
         # print('batch', batch)
         print('batch', batch.shape)

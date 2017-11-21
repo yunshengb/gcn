@@ -1,4 +1,7 @@
 import tensorflow as tf
+import numpy as np
+from sklearn.metrics import f1_score
+import sys
 
 
 def masked_softmax_cross_entropy(preds, labels, mask=None, model=None):
@@ -12,10 +15,23 @@ def masked_softmax_cross_entropy(preds, labels, mask=None, model=None):
 
 
 def accuracy(preds, labels):
-    """Accuracy."""
-    correct_prediction = tf.equal(tf.argmax(preds, 1), tf.argmax(labels, 1))
-    accuracy_all = tf.cast(correct_prediction, tf.float32)
-    return tf.reduce_mean(accuracy_all)
+    ###change float prediction score to binary(0 and 1)###
+    y_true = labels
+    y_pred = preds
+    numlabel = np.sum(y_true,axis=1) # number of labels of each instance
+    binary_pred = np.zeros(y_pred.shape, dtype=np.int)
+    for index in range(y_pred.shape[0]):
+        instance_temp = y_pred[index]
+        num_label_temp = numlabel[index]
+        for label in range(num_label_temp):
+            max_index = np.argmax(instance_temp)
+            instance_temp[max_index] = -sys.maxsize
+            binary_pred[index][max_index] = 1
+    f1_micro = f1_score(y_true, binary_pred, average='micro')
+    f1_macro = f1_score(y_true, binary_pred, average='macro')
+
+
+    return f1_micro, f1_macro
 
 
 def print_mat(model, mat):
