@@ -6,7 +6,7 @@ import scipy.sparse as sp
 from scipy.sparse.linalg.eigen.arpack import eigsh
 from sklearn.preprocessing import normalize
 import sys, os, datetime, collections
-from random import shuffle
+import random
 from math import ceil
 import tensorflow as tf
 from neg_sampling import NegSampler
@@ -181,11 +181,11 @@ def load_data_from_adj(adj, labels=None, features=None):
         labels = proc_labels(adj, remove_self)
     else:
         labels = normalize(labels, norm='l1')
-    if features is not None:
-        features = normalize(features, norm='l2')
+    # if features is not None:
+    #     features = normalize(features, norm='l2')
     train_mask = sample_mask(range(N), N)
     test_ids = list(range(N))
-    shuffle(test_ids)
+    random.Random(123).shuffle(test_ids)
     test_ids = test_ids[0:int(ceil((1-FLAGS.train_ratio) * N))]
     train_mask.fill(1)
     for id in test_ids:
@@ -466,13 +466,13 @@ def construct_feed_dict(adj, features, support, labels, labels_mask,
                         placeholders, mode):
     """Construct feed dictionary."""
     feed_dict = dict()
-    feed_dict.update(
-        {placeholders['support'][i]: support[i] for i in range(len(support))})
+    #feed_dict.update(
+        #{placeholders['support'][i]: support[i] for i in range(len(support))})
     if mode == 0:
-        feed_dict.update({placeholders['train_mask']: labels_mask})
-        feed_dict.update({placeholders['ssl_labels']: labels})
         if features is not None:
             feed_dict.update({placeholders['features']: features})
+        feed_dict.update({placeholders['train_mask']: labels_mask})
+        feed_dict.update({placeholders['ssl_labels']: labels})
     elif FLAGS.need_batch and mode == 2:
         # assert (type(labels) is dict)
         batch, pos_labels, neg_labels, labels = generate_batch(labels)

@@ -7,7 +7,7 @@ import tensorflow as tf
 import numpy as np
 
 from utils import *
-from models import GCN, MLP
+from models import GCN
 
 # Set random seed
 seed = 123
@@ -24,7 +24,7 @@ flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc', 'joint_weighted_0_7_0_3_inverse',
                     'Description of the experiment.')
-flags.DEFINE_integer('need_batch', 0, 'Need min-batch or not.')
+flags.DEFINE_integer('need_batch', 1, 'Need min-batch or not.')
 flags.DEFINE_string('device', 'cpu', 'cpu|gpu.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 10001, 'Number of epochs to train.')
@@ -53,17 +53,13 @@ elif FLAGS.model == 'gcn_cheby':
     support = chebyshev_polynomials(adj, FLAGS.max_degree)
     num_supports = 1 + FLAGS.max_degree
     model_func = GCN
-elif FLAGS.model == 'dense':
-    support = [preprocess_adj(adj)]  # Not used
-    num_supports = 1
-    model_func = MLP
 else:
     raise ValueError('Invalid argument for model: ' + str(FLAGS.model))
 
 # Define placeholders
 N = get_shape(adj)[0]
 placeholders = {
-    'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
+    #'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
     'dropout': tf.placeholder_with_default(0., shape=()),
     'output_dim': get_shape(y_train),
 }
@@ -122,7 +118,6 @@ def get_mode(epoch):
 
 # Summary.
 dir = prepare_exp_dir(FLAGS)
-merged = tf.summary.merge_all()
 
 # Init variables
 sess.run(tf.global_variables_initializer())
@@ -151,20 +146,18 @@ for epoch in range(FLAGS.epochs):
 
     # Training step
     if FLAGS.embed == 0 or FLAGS.embed == 2:
-        fetches = [model.opt_op, model.loss, merged]
+        fetches = [model.opt_op, model.loss]
     elif FLAGS.embed == 3:
         if mode == 0:
-            fetches = [model.ssl_opt_op, model.ssl_loss, merged]
+            fetches = [model.ssl_opt_op, model.ssl_loss]
         elif mode == 2:
-            fetches = [model.usl_opt_op, model.usl_loss, merged]
+            fetches = [model.usl_opt_op, model.usl_loss]
     if mode == 0:
         outputs = model.ssl_layers[-1].outputs if FLAGS.embed == 3 else \
-            model.layers[-1].outputs
+            model.outputs
         fetches.append(tf.nn.embedding_lookup(outputs,
                                               test_ids))
         fetches.append(tf.nn.embedding_lookup(y_train, test_ids))
-    if need_print(epoch):
-        fetches.append(merged)
     outs = sess.run(fetches, feed_dict=feed_dict)
 
     # Print results
@@ -173,8 +166,8 @@ for epoch in range(FLAGS.epochs):
           "time=",
           "{:.5f}".format(time.time() - t))
     if mode == 0:
-        y_preds = outs[3]
-        y_labels = outs[4]
+        y_preds = outs[2]
+        y_labels = outs[3]
         y_labels[y_labels > 0] = 1
         f1_micro, f1_macro = masked_accuracy(y_preds, y_labels)
         f1_micros.append(f1_micro)

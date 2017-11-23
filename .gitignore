@@ -127,3 +127,5 @@ gcn/data/ca-GrQc.txt.gz
 gcn/analysis/node_classification_matlab/temp.m
 *.txt.gz
 *.zip
+*.mexmaci64
+liblinear

@@ -26,7 +26,7 @@ flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training over testing data.')
 flags.DEFINE_integer('need_batch', 1, 'Need min-batch or not.')
 
 # E = '/home/yba/Documents/gcn/gcn/analysis/node_classification/blog_100d/blog_emb_iter_1_p_0.25_q_0.25_walk_40_win_10.npy'
-E = '/home/yba/Documents/gcn/gcn/analysis/node_classification/blog_100d/blog_emb_iter_1_p_1.0_q_1.0_walk_40_win_10.npy'
+E = 'blog_emb_iter_1_p_0.25_q_0.25_walk_40_win_10.npy'
 # E = 'gcn_blog_emb_6100.npy'
 # E = 'blog_100d_embedding.mat'
 # E = 'line_blog_unabridged_100.npy'
@@ -49,8 +49,8 @@ def main():
     for i in range(500):
         feed_dict = {
             placeholders['embedding']: embedding,
-            placeholders['labels']: y_train,
-            placeholders['train_mask']: train_mask
+            placeholders['train_mask']: train_mask,
+            placeholders['labels']: y_train
         }
         fetches = [opt_op, loss_, tf.nn.embedding_lookup(preds_, test_ids),
                          tf.nn.embedding_lookup(y_train, test_ids)]
@@ -73,11 +73,25 @@ def load():
 
 
 def construct(M, N):
+    # placeholders = {
+    #     'embedding': tf.placeholder(tf.float32, shape=(None, FLAGS.dim)),
+    #     'train_mask': tf.placeholder(tf.int32, shape=(N,)),
+    #     'labels': tf.placeholder(tf.float32, shape=(None, M))
+    #
+    # }
     placeholders = {
-        'embedding': tf.placeholder(tf.float32, shape=(None, FLAGS.dim)),
-        'labels': tf.placeholder(tf.float32, shape=(None, M)),
-        'train_mask': tf.placeholder(tf.int32, shape=(N,))
+        # 'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
+        'support': tf.placeholder(tf.int8),
+        'support_': None,
+        'output_dim': 39,
     }
+
+    if FLAGS.embed == 0 or FLAGS.embed == 3:
+        placeholders['embedding'] = tf.placeholder(tf.float32, shape=(None, 100))
+        placeholders['train_mask'] = tf.placeholder(tf.int32, shape=(N,))
+        placeholders['labels'] = tf.placeholder(tf.float32,
+                                                    shape=(None, 39))
+
     optimizer = tf.train.AdamOptimizer(learning_rate=0.01)
     preds = fully_connected(placeholders['embedding'], M, activation_fn=lambda x: x)
     loss = masked_softmax_cross_entropy(preds,

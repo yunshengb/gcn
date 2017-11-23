@@ -48,17 +48,19 @@ class Model(object):
 
         # Build sequential layer model
         self.activations.append(self.inputs)
-        for layer in self.layers:
-            call_layer(layer)
-        if FLAGS.embed == 3:
-            for layer in self.ssl_layers:
-                hidden = layer(self.activations[-1])
-                self.ssl_outputs = hidden
-            for layer in self.usl_layers:
-                hidden = layer(self.activations[-1])
-                self.usl_outputs = hidden
-        else:
-            self.outputs = self.activations[-1]
+        # for layer in self.layers:
+        #     call_layer(layer)
+        # if FLAGS.embed == 3:
+        #     for layer in self.ssl_layers:
+        #         hidden = layer(self.activations[-1])
+        #         self.ssl_outputs = hidden
+        #     for layer in self.usl_layers:
+        #         hidden = layer(self.activations[-1])
+        #         self.usl_outputs = hidden
+        # else:
+        #     self.outputs = self.activations[-1]
+        from tensorflow.contrib.layers import fully_connected
+        self.outputs = fully_connected(self.inputs, 39, activation_fn=lambda x: x)
 
         # Store model variables for easy access
         variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
@@ -72,7 +74,7 @@ class Model(object):
             self.ssl_opt_op = self.optimizer.minimize(self.ssl_loss)
             self.usl_opt_op = self.optimizer.minimize(self.usl_loss)
         else:
-            self.opt_op = self.optimizer.minimize(self.loss)
+            self.opt_op = tf.train.AdamOptimizer(learning_rate=0.01).minimize(self.loss)
 
     def predict(self):
         pass
@@ -99,54 +101,6 @@ class Model(object):
         print("Model restored from file: %s" % save_path)
 
 
-class MLP(Model):
-    def __init__(self, placeholders, input_dim, **kwargs):
-        super(MLP, self).__init__(**kwargs)
-
-        self.inputs = placeholders['features']
-        self.input_dim = input_dim
-        # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
-        self.output_dim = placeholders['labels'].get_shape().as_list()[1]
-        self.placeholders = placeholders
-
-        self.optimizer = tf.train.AdamOptimizer(
-            learning_rate=FLAGS.learning_rate)
-
-        self.build()
-
-    def _loss(self):
-        # Weight decay loss
-        for var in self.layers[0].vars.values():
-            self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
-
-        # Cross entropy error
-        self.loss += softmax_cross_entropy(self.outputs,
-                                           self.placeholders['labels'])
-
-    def _accuracy(self):
-        self.accuracy = accuracy(self.outputs,
-                                 self.placeholders['labels'])
-
-    def _build(self):
-        self.layers.append(Dense(input_dim=self.input_dim,
-                                 output_dim=FLAGS.hidden1,
-                                 placeholders=self.placeholders,
-                                 act=tf.nn.relu,
-                                 dropout=True,
-                                 sparse_inputs=True,
-                                 logging=self.logging))
-
-        self.layers.append(Dense(input_dim=FLAGS.hidden1,
-                                 output_dim=self.output_dim,
-                                 placeholders=self.placeholders,
-                                 act=lambda x: x,
-                                 dropout=True,
-                                 logging=self.logging))
-
-    def predict(self):
-        return tf.nn.softmax(self.outputs)
-
-
 class GCN(Model):
     def __init__(self, placeholders, input_dim, **kwargs):
         super(GCN, self).__init__(**kwargs)
@@ -171,9 +125,9 @@ class GCN(Model):
         self.build()
 
     def _loss(self):
-        # Weight decay loss
-        for var in self.layers[0].vars.values():
-            self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
+        # # Weight decay loss
+        # for var in self.layers[0].vars.values():
+        #     self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
 
         # Cross entropy error
         train_mask = self.placeholders.get('train_mask')
@@ -232,32 +186,32 @@ class GCN(Model):
         '''
 
 
-        if FLAGS.embed == 0 or FLAGS.embed == 3:
-            if FLAGS.embed == 0:
-                layers = self.layers
-            else:
-                self.ssl_layers = []
-                layers = self.ssl_layers
-            layers.append(Dense(input_dim=FLAGS.hidden2,
-                                output_dim=self.ssl_output_dim,
-                                placeholders=self.placeholders,
-                                act=lambda x: x,
-                                dropout=0,
-                                logging=self.logging))
+        # if FLAGS.embed == 0 or FLAGS.embed == 3:
+        #     if FLAGS.embed == 0:
+        #         layers = self.layers
+        #     else:
+        #         self.ssl_layers = []
+        #         layers = self.ssl_layers
+        #     layers.append(Dense(input_dim=FLAGS.hidden2,
+        #                         output_dim=self.ssl_output_dim,
+        #                         placeholders=self.placeholders,
+        #                         act=lambda x: x,
+        #                         dropout=0,
+        #                         logging=self.logging))
 
-        if FLAGS.embed == 2 or FLAGS.embed == 3:
-            if FLAGS.embed == 2:
-                layers = self.layers
-            else:
-                self.usl_layers = []
-                layers = self.usl_layers
-            layers.append(Embedding(input_dim=FLAGS.hidden2,
-                                    output_dim=self.usl_output_dim,
-                                    placeholders=self.placeholders,
-                                    act=lambda x: x,
-                                    dropout=False,
-                                    logging=self.logging,
-                                    model=self))
+        # if FLAGS.embed == 2 or FLAGS.embed == 3:
+        #     if FLAGS.embed == 2:
+        #         layers = self.layers
+        #     else:
+        #         self.usl_layers = []
+        #         layers = self.usl_layers
+        #     layers.append(Embedding(input_dim=FLAGS.hidden2,
+        #                             output_dim=self.usl_output_dim,
+        #                             placeholders=self.placeholders,
+        #                             act=lambda x: x,
+        #                             dropout=False,
+        #                             logging=self.logging,
+        #                             model=self))
 
     def predict(self):
         return tf.nn.softmax(self.outputs)
