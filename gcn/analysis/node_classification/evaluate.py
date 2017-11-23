@@ -81,7 +81,6 @@ def construct(M, N):
     # }
     placeholders = {
         # 'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
-        'support': tf.placeholder(tf.int8),
         'support_': None,
         'output_dim': 39,
     }

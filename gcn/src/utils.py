@@ -466,8 +466,8 @@ def construct_feed_dict(adj, features, support, labels, labels_mask,
                         placeholders, mode):
     """Construct feed dictionary."""
     feed_dict = dict()
-    #feed_dict.update(
-        #{placeholders['support'][i]: support[i] for i in range(len(support))})
+    # feed_dict.update(
+    #     {placeholders['support'][i]: support[i] for i in range(len(support))})
     if mode == 0:
         if features is not None:
             feed_dict.update({placeholders['features']: features})

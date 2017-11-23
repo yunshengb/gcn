@@ -48,19 +48,19 @@ class Model(object):
 
         # Build sequential layer model
         self.activations.append(self.inputs)
-        # for layer in self.layers:
-        #     call_layer(layer)
-        # if FLAGS.embed == 3:
-        #     for layer in self.ssl_layers:
-        #         hidden = layer(self.activations[-1])
-        #         self.ssl_outputs = hidden
-        #     for layer in self.usl_layers:
-        #         hidden = layer(self.activations[-1])
-        #         self.usl_outputs = hidden
-        # else:
-        #     self.outputs = self.activations[-1]
-        from tensorflow.contrib.layers import fully_connected
-        self.outputs = fully_connected(self.inputs, 39, activation_fn=lambda x: x)
+        for layer in self.layers:
+            call_layer(layer)
+        if FLAGS.embed == 3:
+            for layer in self.ssl_layers:
+                hidden = layer(self.activations[-1])
+                self.ssl_outputs = hidden
+            for layer in self.usl_layers:
+                hidden = layer(self.activations[-1])
+                self.usl_outputs = hidden
+        else:
+            self.outputs = self.activations[-1]
+        # from tensorflow.contrib.layers import fully_connected
+        # self.outputs = fully_connected(self.inputs, 39, activation_fn=lambda x: x)
 
         # Store model variables for easy access
         variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
@@ -69,12 +69,12 @@ class Model(object):
 
         # Build metrics
         self._loss()
-        # self._accuracy()
+
         if FLAGS.embed == 3:
             self.ssl_opt_op = self.optimizer.minimize(self.ssl_loss)
             self.usl_opt_op = self.optimizer.minimize(self.usl_loss)
         else:
-            self.opt_op = tf.train.AdamOptimizer(learning_rate=0.01).minimize(self.loss)
+            self.opt_op = self.optimizer.minimize(self.loss)
 
     def predict(self):
         pass
@@ -107,7 +107,6 @@ class GCN(Model):
 
         self.inputs = placeholders.get('features')
         self.input_dim = input_dim
-        # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
         if FLAGS.embed == 0 or FLAGS.embed == 3:
             self.ssl_output_dim = \
             placeholders['ssl_labels'].get_shape().as_list()[1]
@@ -164,7 +163,7 @@ class GCN(Model):
                                  self.placeholders['labels'])
 
     def _build(self):
-        '''
+        """
         self.layers.append(GraphConvolution(input_dim=self.input_dim,
                                             output_dim=FLAGS.hidden1,
                                             placeholders=self.placeholders,
@@ -183,21 +182,21 @@ class GCN(Model):
                                                 lambda x: x),
                                             dropout=0,
                                             logging=self.logging))
-        '''
 
 
-        # if FLAGS.embed == 0 or FLAGS.embed == 3:
-        #     if FLAGS.embed == 0:
-        #         layers = self.layers
-        #     else:
-        #         self.ssl_layers = []
-        #         layers = self.ssl_layers
-        #     layers.append(Dense(input_dim=FLAGS.hidden2,
-        #                         output_dim=self.ssl_output_dim,
-        #                         placeholders=self.placeholders,
-        #                         act=lambda x: x,
-        #                         dropout=0,
-        #                         logging=self.logging))
+        """
+        if FLAGS.embed == 0 or FLAGS.embed == 3:
+            if FLAGS.embed == 0:
+                layers = self.layers
+            else:
+                self.ssl_layers = []
+                layers = self.ssl_layers
+            layers.append(Dense(input_dim=FLAGS.hidden2,
+                                output_dim=self.ssl_output_dim,
+                                placeholders=self.placeholders,
+                                act=lambda x: x,
+                                dropout=0,
+                                logging=self.logging))
 
         # if FLAGS.embed == 2 or FLAGS.embed == 3:
         #     if FLAGS.embed == 2:

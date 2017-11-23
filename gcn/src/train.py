@@ -60,13 +60,14 @@ else:
 N = get_shape(adj)[0]
 placeholders = {
     #'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
-    'dropout': tf.placeholder_with_default(0., shape=()),
+    'support':None,
+    # 'dropout': None,
     'output_dim': get_shape(y_train),
 }
 
 if FLAGS.embed == 0 or FLAGS.embed == 3:
     if features is not None:
-        placeholders['features'] = tf.placeholder(tf.float32, shape=(None, 100))
+        placeholders['features'] = tf.placeholder(tf.float32, shape=(None, features.shape[1]))
     placeholders['train_mask'] = tf.placeholder(tf.int32, shape=(N,))
     placeholders['ssl_labels'] = tf.placeholder(tf.float32,
                                             shape=(None, y_train.shape[1]))
@@ -131,7 +132,7 @@ for epoch in range(FLAGS.epochs):
     # Construct feed dictionary
     feed_dict = construct_feed_dict(adj, features, support, y_train, train_mask,
                                     placeholders, mode)
-    feed_dict.update({placeholders['dropout']: FLAGS.dropout})
+    # feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
     if need_print(epoch):
         if FLAGS.embed > 0:
@@ -153,9 +154,9 @@ for epoch in range(FLAGS.epochs):
         elif mode == 2:
             fetches = [model.usl_opt_op, model.usl_loss]
     if mode == 0:
-        outputs = model.ssl_layers[-1].outputs if FLAGS.embed == 3 else \
+        preds = model.ssl_layers[-1].outputs if FLAGS.embed == 3 else \
             model.outputs
-        fetches.append(tf.nn.embedding_lookup(outputs,
+        fetches.append(tf.nn.embedding_lookup(preds,
                                               test_ids))
         fetches.append(tf.nn.embedding_lookup(y_train, test_ids))
     outs = sess.run(fetches, feed_dict=feed_dict)
