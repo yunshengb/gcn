@@ -24,12 +24,12 @@ flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc', 'joint_weighted_0_7_0_3_inverse',
                     'Description of the experiment.')
-flags.DEFINE_integer('need_batch', 1, 'Need min-batch or not.')
+flags.DEFINE_integer('need_batch', 0, 'Need min-batch or not.')
 flags.DEFINE_string('device', 'cpu', 'cpu|gpu.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 10001, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 100, 'Number of units in hidden layer 1.')
-flags.DEFINE_integer('hidden2', 100, 'Number of units in hidden layer 2.')
+flags.DEFINE_integer('hidden2', 50, 'Number of units in hidden layer 2.')
 flags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
 flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training over testing data.')
 flags.DEFINE_integer('embed', 0, '0: No embedding; 1|2|3.')
@@ -59,8 +59,8 @@ else:
 # Define placeholders
 N = get_shape(adj)[0]
 placeholders = {
-    #'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
-    'support':None,
+    'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
+    #'support':None,
     # 'dropout': None,
     'output_dim': get_shape(y_train),
 }
@@ -175,7 +175,7 @@ for epoch in range(FLAGS.epochs):
         f1_macros.append(f1_macro)
         print('f1_micro, f1_macro', f1_micro, f1_macro)
         print('max f1_micros, max f1_macros', np.max(f1_micros), np.max(
-            f1_macros))
+            f1_macros), np.argmax(f1_micros), np.argmax(f1_macros))
 
 
 print("Optimization Finished!")

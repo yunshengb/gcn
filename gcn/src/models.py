@@ -163,9 +163,9 @@ class GCN(Model):
                                  self.placeholders['labels'])
 
     def _build(self):
-        """
+
         self.layers.append(GraphConvolution(input_dim=self.input_dim,
-                                            output_dim=FLAGS.hidden1,
+                                            output_dim=39,
                                             placeholders=self.placeholders,
                                             act=tf.nn.relu,
                                             dropout=0,
@@ -174,29 +174,27 @@ class GCN(Model):
                                             logging=self.logging))
 
 
-        self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
-                                            output_dim=FLAGS.hidden2,
-                                            placeholders=self.placeholders,
-                                            act=tf.nn.relu if FLAGS.embed ==
-                                                              0 else (
-                                                lambda x: x),
-                                            dropout=0,
-                                            logging=self.logging))
+        # self.layers.append(GraphConvolution(input_dim=FLAGS.hidden2,
+        #                                     output_dim=39,
+        #                                     placeholders=self.placeholders,
+        #                                     act=tf.nn.relu,
+        #                                     dropout=0,
+        #                                     logging=self.logging))
 
 
-        """
-        if FLAGS.embed == 0 or FLAGS.embed == 3:
-            if FLAGS.embed == 0:
-                layers = self.layers
-            else:
-                self.ssl_layers = []
-                layers = self.ssl_layers
-            layers.append(Dense(input_dim=FLAGS.hidden2,
-                                output_dim=self.ssl_output_dim,
-                                placeholders=self.placeholders,
-                                act=lambda x: x,
-                                dropout=0,
-                                logging=self.logging))
+
+        # if FLAGS.embed == 0 or FLAGS.embed == 3:
+        #     if FLAGS.embed == 0:
+        #         layers = self.layers
+        #     else:
+        #         self.ssl_layers = []
+        #         layers = self.ssl_layers
+        #     layers.append(Dense(input_dim=FLAGS.hidden2,
+        #                         output_dim=self.ssl_output_dim,
+        #                         placeholders=self.placeholders,
+        #                         act=lambda x: x,
+        #                         dropout=0,
+        #                         logging=self.logging))
 
         # if FLAGS.embed == 2 or FLAGS.embed == 3:
         #     if FLAGS.embed == 2:

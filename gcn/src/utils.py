@@ -304,12 +304,12 @@ def proc_labels(labels, remove_self=False):
         #                                  inverse=True).todense()
 
 
-def preprocess_adj(adj):
+def preprocess_adj(adj):#laplacian
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
-    # adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
+    #adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
     #adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
-    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.7, 0.3, 0],
-                                               inverse=False)
+    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.55, 0.4, 0.05])
+    #                                            inverse=False)
     # x = np.array(normalize_adj_sym(adj + sp.eye(adj.shape[0])).todense())
     # y = np.array(normalize_adj_row(adj + sp.eye(adj.shape[0])).todense())
     # z = np.array(sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[
@@ -466,8 +466,8 @@ def construct_feed_dict(adj, features, support, labels, labels_mask,
                         placeholders, mode):
     """Construct feed dictionary."""
     feed_dict = dict()
-    # feed_dict.update(
-    #     {placeholders['support'][i]: support[i] for i in range(len(support))})
+    feed_dict.update(
+        {placeholders['support'][i]: support[i] for i in range(len(support))})
     if mode == 0:
         if features is not None:
             feed_dict.update({placeholders['features']: features})

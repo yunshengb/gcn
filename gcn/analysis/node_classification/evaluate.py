@@ -58,7 +58,7 @@ def main():
         f1_micros.append(f1_micro)
         f1_macros.append(f1_macro)
         print('max f1_micros, max f1_macros', np.max(f1_micros), np.max(
-            f1_macros))
+            f1_macros), np.argmax(f1_micros), np.argmax(f1_macros))
 
 
 def load():
