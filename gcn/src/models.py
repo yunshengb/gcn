@@ -30,7 +30,6 @@ class Model(object):
         self.loss = 0
         self.accuracy = 0
         self.optimizer = None
-        self.opt_op = None
 
         self.printer = None
 
@@ -39,15 +38,27 @@ class Model(object):
 
     def build(self):
         """ Wrapper for _build() """
+
+        def call_layer(layer):
+            hidden = layer(self.activations[-1])
+            self.activations.append(hidden)
+
         with tf.variable_scope(self.name):
             self._build()
 
         # Build sequential layer model
         self.activations.append(self.inputs)
         for layer in self.layers:
-            hidden = layer(self.activations[-1])
-            self.activations.append(hidden)
-        self.outputs = self.activations[-1]
+            call_layer(layer)
+        if FLAGS.embed == 3:
+            for layer in self.ssl_layers:
+                hidden = layer(self.activations[-1])
+                self.ssl_outputs = hidden
+            for layer in self.usl_layers:
+                hidden = layer(self.activations[-1])
+                self.usl_outputs = hidden
+        else:
+            self.outputs = self.activations[-1]
 
         # Store model variables for easy access
         variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
@@ -56,9 +67,12 @@ class Model(object):
 
         # Build metrics
         self._loss()
-        #self._accuracy()
-
-        self.opt_op = self.optimizer.minimize(self.loss)
+        # self._accuracy()
+        if FLAGS.embed == 3:
+            self.ssl_opt_op = self.optimizer.minimize(self.ssl_loss)
+            self.usl_opt_op = self.optimizer.minimize(self.usl_loss)
+        else:
+            self.opt_op = self.optimizer.minimize(self.loss)
 
     def predict(self):
         pass
@@ -137,13 +151,15 @@ class GCN(Model):
     def __init__(self, placeholders, input_dim, **kwargs):
         super(GCN, self).__init__(**kwargs)
 
-        self.inputs = None
+        self.inputs = placeholders.get('features')
         self.input_dim = input_dim
         # self.input_dim = self.inputs.get_shape().as_list()[1]  # To be supported in future Tensorflow versions
-        if FLAGS.embed == 0:
-            self.output_dim = placeholders['labels'].get_shape().as_list()[1]
-        else:
-            self.output_dim = None # output_dim does not matter
+        if FLAGS.embed == 0 or FLAGS.embed == 3:
+            self.ssl_output_dim = \
+            placeholders['ssl_labels'].get_shape().as_list()[1]
+        if FLAGS.embed == 2 or FLAGS.embed == 3:
+            self.usl_output_dim = \
+            placeholders['usl_labels'].get_shape().as_list()[1]
         self.placeholders = placeholders
 
         self.optimizer = tf.train.AdamOptimizer(
@@ -160,61 +176,88 @@ class GCN(Model):
             self.loss += FLAGS.weight_decay * tf.nn.l2_loss(var)
 
         # Cross entropy error
-        labels_to_use = self.labels if hasattr(self, 'labels') else self.placeholders['labels']
-        loss = masked_softmax_cross_entropy(self.outputs, labels_to_use, self.placeholders['train_mask'],
-                                         model=self)
-
-        self.loss += loss
-        # self.printer = tf.Print(loss, [loss], message='@@@')
-        tf.summary.scalar('cross_entropy', self.loss)
+        train_mask = self.placeholders.get('train_mask')
+        if FLAGS.embed == 3:
+            self.ssl_labels = self.placeholders['ssl_labels']
+            ssl_loss = masked_softmax_cross_entropy(self.ssl_outputs,
+                                                    self.ssl_labels,
+                                                    train_mask,
+                                                    model=self)
+            self.ssl_loss = self.loss + ssl_loss
+            self.usl_labels = self.placeholders['usl_labels']
+            usl_loss = masked_softmax_cross_entropy(self.usl_outputs,
+                                                    self.usl_labels,
+                                                    None,
+                                                    model=self)
+            self.usl_loss = self.loss + usl_loss
+        elif FLAGS.embed == 0:
+            self.ssl_labels = self.placeholders['ssl_labels']
+            loss = masked_softmax_cross_entropy(self.outputs,
+                                                self.ssl_labels,
+                                                train_mask,
+                                                model=self)
+            self.loss += loss
+        elif FLAGS.embed == 2:
+            self.usl_labels = self.placeholders['usl_labels']
+            loss = masked_softmax_cross_entropy(self.outputs,
+                                                self.usl_labels,
+                                                None,
+                                                model=self)
+            self.loss += loss
 
     def _accuracy(self):
         self.accuracy = accuracy(self.outputs,
                                  self.placeholders['labels'])
 
     def _build(self):
-
+        '''
         self.layers.append(GraphConvolution(input_dim=self.input_dim,
                                             output_dim=FLAGS.hidden1,
                                             placeholders=self.placeholders,
                                             act=tf.nn.relu,
-                                            dropout=True,
-                                            sparse_inputs=True,
-                                            featureless=True,
+                                            dropout=0,
+                                            sparse_inputs=False,
+                                            featureless=self.inputs is None,
                                             logging=self.logging))
+
 
         self.layers.append(GraphConvolution(input_dim=FLAGS.hidden1,
-                                            output_dim=FLAGS.hidden2 if
-                                            FLAGS.embed != 0 else self.output_dim,
+                                            output_dim=FLAGS.hidden2,
                                             placeholders=self.placeholders,
-                                            act=lambda x: x,
-                                            dropout=True,
+                                            act=tf.nn.relu if FLAGS.embed ==
+                                                              0 else (
+                                                lambda x: x),
+                                            dropout=0,
                                             logging=self.logging))
+        '''
 
-        if FLAGS.embed == 2:
-            self.layers.append(Dense(input_dim=FLAGS.hidden2,
-                                     output_dim=FLAGS.hidden2,
-                                     placeholders=self.placeholders,
-                                     act=lambda x: x,
-                                     dropout=True,
-                                     logging=self.logging))
 
-        if FLAGS.embed >= 2:
-            self.layers.append(Embedding(input_dim=FLAGS.hidden2 if
-            FLAGS.embed != 3 else self.input_dim,
-                                         output_dim=self.output_dim,
-                                         placeholders=self.placeholders,
-                                         act=lambda x: x,
-                                         dropout=True,
-                                         logging=self.logging,
-                                         model=self))
-        elif FLAGS.embed == 1:
-            self.layers.append(Dense(input_dim=FLAGS.hidden2,
-                                     output_dim=self.output_dim,
-                                     placeholders=self.placeholders,
-                                     act=lambda x: x,
-                                     dropout=True,
-                                     logging=self.logging))
+        if FLAGS.embed == 0 or FLAGS.embed == 3:
+            if FLAGS.embed == 0:
+                layers = self.layers
+            else:
+                self.ssl_layers = []
+                layers = self.ssl_layers
+            layers.append(Dense(input_dim=FLAGS.hidden2,
+                                output_dim=self.ssl_output_dim,
+                                placeholders=self.placeholders,
+                                act=lambda x: x,
+                                dropout=0,
+                                logging=self.logging))
+
+        if FLAGS.embed == 2 or FLAGS.embed == 3:
+            if FLAGS.embed == 2:
+                layers = self.layers
+            else:
+                self.usl_layers = []
+                layers = self.usl_layers
+            layers.append(Embedding(input_dim=FLAGS.hidden2,
+                                    output_dim=self.usl_output_dim,
+                                    placeholders=self.placeholders,
+                                    act=lambda x: x,
+                                    dropout=False,
+                                    logging=self.logging,
+                                    model=self))
 
     def predict(self):
         return tf.nn.softmax(self.outputs)

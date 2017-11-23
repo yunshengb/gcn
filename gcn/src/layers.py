@@ -72,11 +72,11 @@ class Layer(object):
 
     def __call__(self, inputs):
         with tf.name_scope(self.name):
-            if self.logging and not self.sparse_inputs:
-                tf.summary.histogram(self.name + '/inputs', inputs)
+            # if self.logging and not self.sparse_inputs:
+            #     tf.summary.histogram(self.name + '/inputs', inputs)
             outputs = self._call(inputs)
-            if self.logging:
-                tf.summary.histogram(self.name + '/outputs', outputs)
+            # if self.logging:
+            #     tf.summary.histogram(self.name + '/outputs', outputs)
             self.outputs = outputs
             return outputs
 
@@ -96,7 +96,7 @@ class Dense(Layer):
         if dropout:
             self.dropout = placeholders['dropout']
         else:
-            self.dropout = 0.
+            self.dropout = None
 
         self.act = act
         self.sparse_inputs = sparse_inputs
@@ -114,6 +114,10 @@ class Dense(Layer):
 
     def _call(self, inputs):
         x = inputs
+
+        # dropout
+        if not self.featureless and self.dropout is not None:
+                x = tf.nn.dropout(x, 1-self.dropout)
 
         # transform
         output = dot(x, self.vars['weights'], sparse=self.sparse_inputs)
@@ -136,13 +140,15 @@ class GraphConvolution(Layer):
         if dropout:
             self.dropout = placeholders['dropout']
         else:
-            self.dropout = 0.
+            self.dropout = None
 
         self.act = act
         self.support = placeholders['support']
         self.sparse_inputs = sparse_inputs
         self.featureless = featureless
         self.bias = bias
+
+        # helper variable for sparse dropout)
 
         with tf.variable_scope(self.name + '_vars'):
             for i in range(len(self.support)):
@@ -157,6 +163,10 @@ class GraphConvolution(Layer):
 
     def _call(self, inputs):
         x = inputs
+
+        # dropout
+        if not self.featureless and self.dropout is not None:
+            x = tf.nn.dropout(x, 1-self.dropout)
 
         # convolve
         supports = list()
@@ -193,11 +203,11 @@ class Embedding(Layer):
         self.act = act
         self.sparse_inputs = sparse_inputs
 
-        if not 'batch' in placeholders:
+        if not FLAGS.need_batch:
             self.sims_mask = placeholders['sims_mask']
         else:
             self.batch = placeholders['batch']
-            self.labels = placeholders['labels']
+            self.labels = placeholders['usl_labels']
             self.pos_labels = placeholders['pos_labels']
             self.neg_labels = placeholders['neg_labels']
             self.num_data = placeholders['num_data']
@@ -215,7 +225,6 @@ class Embedding(Layer):
         self.embeddings = x
 
         if hasattr(self, 'batch'):
-            # embed = tf.nn.embedding_lookup(self.embeddings, self.batch)
             self.embeddings = x
             print('num_data', self.num_data)
             output = neg_sampling(self.embeddings, self.batch, self.pos_labels,
@@ -226,12 +235,5 @@ class Embedding(Layer):
             output = tf.matmul(embed, tf.transpose(self.embeddings))
             output = tf.multiply(output, self.sims_mask)
         self.output = output
-
-        if self.model:
-            var = output
-            self.model.printer = tf.Print(var,
-                                          [var],
-                                          message='var: ',
-                                          summarize=100)
 
         return output

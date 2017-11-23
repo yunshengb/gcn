@@ -22,16 +22,13 @@ def prepare_exp_dir(flags):
                                                                     flags.desc if
     flags.desc
     else '', datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
-    intermediate_dir = '%s/intermediate' % dir
-    logdir = '%s/log' % dir
 
     def makedir(dir):
         os.system('rm -rf %s && mkdir -pv %s' % (dir, dir))
 
     if not flags.debug:
-        makedir(intermediate_dir)
-        makedir(logdir)
-    return dir, intermediate_dir, logdir
+        makedir(dir)
+    return dir
 
 
 def parse_index_file(filename):
@@ -97,18 +94,22 @@ def load_synthetic_data():
     return load_data_from_adj(adj)
 
 
-def load_blog_data(need_batch=False):
+def load_blog_data():
     labels = None
-    if FLAGS.embed == 0:
+    features = None
+    features = np.load(
+        '{}/../data/BlogCatalog-dataset/data/blog_emb_iter_1_p_0.25_q_0.25_walk_40_win_10.npy'.format(
+            current_folder))
+    if FLAGS.embed == 0 or FLAGS.embed == 3:
         labels = np.load(
             '{}/../data/BlogCatalog-dataset/data/blog_labels.npy'.format(
                 current_folder))
 
-    if not need_batch:
+    if not FLAGS.need_batch:
         adj = np.load(
             '{}/../data/BlogCatalog-dataset/data/blog_adj.npy'.format(
                 current_folder))
-        return load_data_from_adj(adj, labels, need_batch)
+        return load_data_from_adj(adj, labels, features)
 
     dic = collections.defaultdict(list)
     print('Loading blog')
@@ -123,7 +124,7 @@ def load_blog_data(need_batch=False):
     dic = dict(dic)
     print('Loaded blog')
 
-    return load_data_from_adj(dic, labels, need_batch)
+    return load_data_from_adj(dic, labels, features)
 
 
 def load_flickr_data():
@@ -144,7 +145,7 @@ def load_flickr_data():
         dic = dict(dic)
         print('Loaded flickr')
         save(path, dic)
-    return load_data_from_adj(dic, need_batch=True)
+    return load_data_from_adj(dic)
 
 
 def id(i):
@@ -173,21 +174,23 @@ def add_common_neighbor(adj):
     return larger
 
 
-def load_data_from_adj(adj, labels=None, need_batch=False):
+def load_data_from_adj(adj, labels=None, features=None):
     N = get_shape(adj)[0]
     if labels is None:
-        labels = proc_labels(adj)
+        remove_self = True if FLAGS.dataset == 'arxiv' else False
+        labels = proc_labels(adj, remove_self)
     else:
         labels = normalize(labels, norm='l1')
-    features = None
+    if features is not None:
+        features = normalize(features, norm='l2')
     train_mask = sample_mask(range(N), N)
     test_ids = list(range(N))
     shuffle(test_ids)
-    test_ids = test_ids[0:int(ceil(0.1 * N))] # 10% testing
+    test_ids = test_ids[0:int(ceil((1-FLAGS.train_ratio) * N))]
     train_mask.fill(1)
     for id in test_ids:
         train_mask[id] = 0
-    return adj, features, labels, train_mask, test_ids, need_batch
+    return adj, features, labels, train_mask, test_ids
 
 
 def load_data(dataset_str, embed):
@@ -273,11 +276,12 @@ def select(a, size=None):
         return None
 
 
-def proc_labels(labels):
+def proc_labels(labels, remove_self=False):
     # adj is dense.
-    # zero_diagonal = np.ones(labels.shape)
-    # np.fill_diagonal(zero_diagonal, 0)
-    # labels = np.multiply(labels, zero_diagonal)
+    if remove_self:
+        zero_diagonal = np.ones(labels.shape)
+        np.fill_diagonal(zero_diagonal, 0)
+        labels = np.multiply(labels, zero_diagonal)
     # for i in range(labels.shape[0]):
     #     # if np.count_nonzero(labels[i]) == 0:
     #     #     print('@@@@@')
@@ -294,18 +298,18 @@ def proc_labels(labels):
     if type(labels) is dict:
         return labels
     else:
-        # return normalize(labels, norm='l1')
-        return normalize_adj_weighted_row(labels, weights=[0, 1,
-                                                           0],
-                                          inverse=False).todense()
+        return normalize(labels, norm='l1')
+        #return normalize_adj_weighted_row(labels, weights=[0, 1,
+        #                                                   0],
+        #                                  inverse=True).todense()
 
 
 def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
     # adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
-    # adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
-    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.8, 0.2, 0],
-                                                inverse=False)
+    #adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
+    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.7, 0.3, 0],
+                                               inverse=False)
     # x = np.array(normalize_adj_sym(adj + sp.eye(adj.shape[0])).todense())
     # y = np.array(normalize_adj_row(adj + sp.eye(adj.shape[0])).todense())
     # z = np.array(sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[
@@ -458,15 +462,18 @@ def get_shape(mat):
     return mat.shape
 
 
-def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
-                        embed, need_batch):
+def construct_feed_dict(adj, features, support, labels, labels_mask,
+                        placeholders, mode):
     """Construct feed dictionary."""
     feed_dict = dict()
     feed_dict.update(
         {placeholders['support'][i]: support[i] for i in range(len(support))})
-    if FLAGS.embed == 0:
+    if mode == 0:
         feed_dict.update({placeholders['train_mask']: labels_mask})
-    if need_batch:
+        feed_dict.update({placeholders['ssl_labels']: labels})
+        if features is not None:
+            feed_dict.update({placeholders['features']: features})
+    elif FLAGS.need_batch and mode == 2:
         # assert (type(labels) is dict)
         batch, pos_labels, neg_labels, labels = generate_batch(labels)
         # print('batch', batch)
@@ -477,16 +484,15 @@ def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
         feed_dict.update({placeholders['batch']: batch})
         feed_dict.update({placeholders['pos_labels']: pos_labels})
         feed_dict.update({placeholders['neg_labels']: neg_labels})
-        feed_dict.update({placeholders['labels']: labels})
-    else:
-        feed_dict.update({placeholders['labels']: labels})
-        if embed == 2:
-            N = get_shape(labels)[0]
-            inf_diagonal = np.zeros((N, N))
-            np.fill_diagonal(inf_diagonal, 999999999999999999)
-            feed_dict.update(
-                {placeholders['sims_mask']: np.ones((N, N)) - np.identity(
-                    N) - inf_diagonal})
+        feed_dict.update({placeholders['usl_labels']: labels})
+    elif mode == 2:
+        feed_dict.update({placeholders['usl_labels']: labels})
+        N = get_shape(labels)[0]
+        inf_diagonal = np.zeros((N, N))
+        np.fill_diagonal(inf_diagonal, 999999999999999999)
+        feed_dict.update(
+            {placeholders['sims_mask']: np.ones((N, N)) - np.identity(
+                N) - inf_diagonal})
     return feed_dict
 
 
@@ -522,7 +528,7 @@ def construct_feed_dict(adj, support, labels, labels_mask, placeholders,
 
 data_index = 0
 # max_size = 11799765 // 4
-max_size = 667969//2
+max_size = 667969
 round = 0
 ids = []
 neg_sampler = NegSampler(num_neg=5)

@@ -14,23 +14,25 @@ def masked_softmax_cross_entropy(preds, labels, mask=None, model=None):
     return tf.reduce_mean(loss)
 
 
-def accuracy(preds, labels):
+def masked_accuracy(y_pred, y_true):
     ###change float prediction score to binary(0 and 1)###
-    y_true = labels
-    y_pred = preds
-    numlabel = np.sum(y_true,axis=1) # number of labels of each instance
+    numlabel = np.sum(y_true, axis=1) # number of labels of each instance
     binary_pred = np.zeros(y_pred.shape, dtype=np.int)
     for index in range(y_pred.shape[0]):
-        instance_temp = y_pred[index]
-        num_label_temp = numlabel[index]
+        instance_temp = np.copy(y_pred[index])
+        num_label_temp = int(numlabel[index])
         for label in range(num_label_temp):
             max_index = np.argmax(instance_temp)
             instance_temp[max_index] = -sys.maxsize
             binary_pred[index][max_index] = 1
+    # for index in range(y_pred.shape[0]):
+    #     if not (binary_pred[index]==y_true[index]).all():
+    #         print('@@@', index)
+    #         print('binary_pred[index]', binary_pred[index])
+    #         print('y_true[index]', y_true[index])
+    #         exit(1)
     f1_micro = f1_score(y_true, binary_pred, average='micro')
     f1_macro = f1_score(y_true, binary_pred, average='macro')
-
-
     return f1_micro, f1_macro
 
 
