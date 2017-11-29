@@ -97,9 +97,9 @@ def load_synthetic_data():
 def load_blog_data():
     labels = None
     features = None
-    features = np.load(
-        '{}/../data/BlogCatalog-dataset/data/blog_emb_iter_1_p_0.25_q_0.25_walk_40_win_10.npy'.format(
-            current_folder))
+    # features = np.load(
+    #     '{}/../data/BlogCatalog-dataset/data/blog_emb_iter_1_p_0.25_q_0.25_walk_40_win_10.npy'.format(
+    #         current_folder))
     if FLAGS.embed == 0 or FLAGS.embed == 3:
         labels = np.load(
             '{}/../data/BlogCatalog-dataset/data/blog_labels.npy'.format(
@@ -173,7 +173,7 @@ def add_common_neighbor(adj):
     np.fill_diagonal(larger, 0)
     return larger
 
-
+#add mask
 def load_data_from_adj(adj, labels=None, features=None):
     N = get_shape(adj)[0]
     if labels is None:
@@ -184,13 +184,15 @@ def load_data_from_adj(adj, labels=None, features=None):
     # if features is not None:
     #     features = normalize(features, norm='l2')
     train_mask = sample_mask(range(N), N)
-    test_ids = list(range(N))
-    random.Random(123).shuffle(test_ids)
-    test_ids = test_ids[0:int(ceil((1-FLAGS.train_ratio) * N))]
+    all_ids = list(range(N))
+    random.Random(123).shuffle(all_ids)
+    valid_ids = all_ids[0:ceil(0.1 * N)] # 10%
+    test_ids = all_ids[ceil(0.1 * N):ceil((1 - FLAGS.train_ratio) * N)] # test 1-train_ratio-0.1
     train_mask.fill(1)
-    for id in test_ids:
+    unseen_ids = (valid_ids + test_ids)
+    for id in unseen_ids:
         train_mask[id] = 0
-    return adj, features, labels, train_mask, test_ids
+    return adj, features, labels, train_mask, valid_ids, test_ids
 
 
 def load_data(dataset_str, embed):
@@ -306,9 +308,9 @@ def proc_labels(labels, remove_self=False):
 
 def preprocess_adj(adj):#laplacian
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
-    #adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
+    adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
     #adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
-    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.55, 0.4, 0.05])
+    #adj_normalized = normalize_adj_weighted_row(adj, weights=[0.58, 0.42, 0])
     #                                            inverse=False)
     # x = np.array(normalize_adj_sym(adj + sp.eye(adj.shape[0])).todense())
     # y = np.array(normalize_adj_row(adj + sp.eye(adj.shape[0])).todense())

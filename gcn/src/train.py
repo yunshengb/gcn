@@ -41,7 +41,7 @@ flags.DEFINE_integer('early_stopping', 10,
 flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 
 # Load data
-adj, features, y_train, train_mask, test_ids = \
+adj, features, y_train, train_mask, valid_ids, test_ids = \
     load_data(FLAGS.dataset, FLAGS.embed)
 
 # Some preprocessing
@@ -61,9 +61,11 @@ N = get_shape(adj)[0]
 placeholders = {
     'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
     #'support':None,
-    # 'dropout': None,
+    #'dropout': tf.float32,
     'output_dim': get_shape(y_train),
 }
+
+#placeholders['dropout'] = tf.placeholder(tf.float32)
 
 if FLAGS.embed == 0 or FLAGS.embed == 3:
     if features is not None:
@@ -71,6 +73,7 @@ if FLAGS.embed == 0 or FLAGS.embed == 3:
     placeholders['train_mask'] = tf.placeholder(tf.int32, shape=(N,))
     placeholders['ssl_labels'] = tf.placeholder(tf.float32,
                                             shape=(None, y_train.shape[1]))
+
 
 if FLAGS.need_batch and (FLAGS.embed == 2 or FLAGS.embed == 3):
     placeholders['batch'] = tf.placeholder(tf.int32)
@@ -123,7 +126,10 @@ dir = prepare_exp_dir(FLAGS)
 # Init variables
 sess.run(tf.global_variables_initializer())
 
-f1_micros, f1_macros = [], []
+#f1_micros, f1_macros = [], []
+
+f1_micros_valid, f1_macros_valid = [], []
+f1_micros_test, f1_macros_test = [], []
 
 # Train model
 for epoch in range(FLAGS.epochs):
@@ -132,7 +138,7 @@ for epoch in range(FLAGS.epochs):
     # Construct feed dictionary
     feed_dict = construct_feed_dict(adj, features, support, y_train, train_mask,
                                     placeholders, mode)
-    # feed_dict.update({placeholders['dropout']: FLAGS.dropout})
+    #feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
     if need_print(epoch):
         if FLAGS.embed > 0:
@@ -157,6 +163,9 @@ for epoch in range(FLAGS.epochs):
         preds = model.ssl_layers[-1].outputs if FLAGS.embed == 3 else \
             model.outputs
         fetches.append(tf.nn.embedding_lookup(preds,
+                                              valid_ids))
+        fetches.append(tf.nn.embedding_lookup(y_train, valid_ids))
+        fetches.append(tf.nn.embedding_lookup(preds,
                                               test_ids))
         fetches.append(tf.nn.embedding_lookup(y_train, test_ids))
     outs = sess.run(fetches, feed_dict=feed_dict)
@@ -167,15 +176,27 @@ for epoch in range(FLAGS.epochs):
           "time=",
           "{:.5f}".format(time.time() - t))
     if mode == 0:
-        y_preds = outs[2]
-        y_labels = outs[3]
-        y_labels[y_labels > 0] = 1
-        f1_micro, f1_macro = masked_accuracy(y_preds, y_labels)
-        f1_micros.append(f1_micro)
-        f1_macros.append(f1_macro)
-        print('f1_micro, f1_macro', f1_micro, f1_macro)
-        print('max f1_micros, max f1_macros', np.max(f1_micros), np.max(
-            f1_macros), np.argmax(f1_micros), np.argmax(f1_macros))
+        def eval_f1(outs, x, y, name):
+            y_preds = outs[x]
+            y_labels = outs[y]
+            y_labels[y_labels > 0] = 1
+            f1_micro, f1_macro = masked_accuracy(y_preds, y_labels)
+            if name == 'validation':
+                f1_micros_valid.append(f1_micro)
+                f1_macros_valid.append(f1_macro)
+                print(name, 'f1_micro, f1_macro', f1_micro, f1_macro, np.argmax(f1_micros_valid), np.argmax(f1_macros_valid))
+            else:
+                f1_micros_test.append(f1_micro)
+                f1_macros_test.append(f1_macro)
+                print(name, 'f1_micro, f1_macro', f1_micro, f1_macro, np.argmax(f1_micros_test), np.argmax(f1_macros_test))
+
+        eval_f1(outs, 2, 3, 'validation')
+        eval_f1(outs, 4, 5, 'testing   ')
+        # print('max f1_micros, max f1_macros', np.max(f1_micros), np.max(
+        #     f1_macros), np.argmax(f1_micros), np.argmax(f1_macros))
+
+
+
 
 
 print("Optimization Finished!")

@@ -164,11 +164,25 @@ class GCN(Model):
 
     def _build(self):
 
+        # if FLAGS.embed == 0 or FLAGS.embed == 3:
+        #     if FLAGS.embed == 0:
+        #         layers = self.layers
+        #     else:
+        #         self.ssl_layers = []
+        #         layers = self.ssl_layers
+        #     layers.append(Dense(input_dim=self.input_dim,
+        #                         output_dim=FLAGS.hidden2,
+        #                         placeholders=self.placeholders,
+        #                         act=lambda x: x,
+        #                         dropout=0,
+        #                         logging=self.logging))
+
+
         self.layers.append(GraphConvolution(input_dim=self.input_dim,
                                             output_dim=39,
                                             placeholders=self.placeholders,
                                             act=tf.nn.relu,
-                                            dropout=0,
+                                            dropout=0.,#0-means no drop out, 1-means have drop out, dropout ratio is in FALGS
                                             sparse_inputs=False,
                                             featureless=self.inputs is None,
                                             logging=self.logging))

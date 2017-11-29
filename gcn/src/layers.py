@@ -139,6 +139,7 @@ class GraphConvolution(Layer):
 
         if dropout:
             self.dropout = placeholders['dropout']
+            #self.dropout = 0.1
         else:
             self.dropout = None
 
@@ -166,7 +167,8 @@ class GraphConvolution(Layer):
 
         # dropout
         if not self.featureless and self.dropout is not None:
-            x = tf.nn.dropout(x, 1-self.dropout)
+
+            x = tf.nn.dropout(x, 1-self.dropout) #the argument is the keep_prob
 
         # convolve
         supports = list()
