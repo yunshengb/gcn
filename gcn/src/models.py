@@ -59,8 +59,6 @@ class Model(object):
                 self.usl_outputs = hidden
         else:
             self.outputs = self.activations[-1]
-        # from tensorflow.contrib.layers import fully_connected
-        # self.outputs = fully_connected(self.inputs, 39, activation_fn=lambda x: x)
 
         # Store model variables for easy access
         variables = tf.get_collection(tf.GraphKeys.GLOBAL_VARIABLES,
@@ -164,27 +162,37 @@ class GCN(Model):
 
     def _build(self):
 
-        # if FLAGS.embed == 0 or FLAGS.embed == 3:
-        #     if FLAGS.embed == 0:
-        #         layers = self.layers
-        #     else:
-        #         self.ssl_layers = []
-        #         layers = self.ssl_layers
-        #     layers.append(Dense(input_dim=self.input_dim,
-        #                         output_dim=FLAGS.hidden2,
-        #                         placeholders=self.placeholders,
-        #                         act=lambda x: x,
-        #                         dropout=0,
-        #                         logging=self.logging))
-
-
         self.layers.append(GraphConvolution(input_dim=self.input_dim,
-                                            output_dim=39,
+                                            output_dim=39*2,
                                             placeholders=self.placeholders,
                                             act=tf.nn.relu,
-                                            dropout=0.,#0-means no drop out, 1-means have drop out, dropout ratio is in FALGS
+                                            dropout=0.,
                                             sparse_inputs=False,
                                             featureless=self.inputs is None,
+                                            logging=self.logging))
+
+        # self.layers.append(GraphConvolution(input_dim=150,
+        #                                     output_dim=100,
+        #                                     placeholders=self.placeholders,
+        #                                     act=tf.nn.relu,
+        #                                     dropout=0.,
+        #                                     sparse_inputs=False,
+        #                                     logging=self.logging))
+        #
+        # self.layers.append(GraphConvolution(input_dim=100,
+        #                                     output_dim=70,
+        #                                     placeholders=self.placeholders,
+        #                                     act=tf.nn.relu,
+        #                                     dropout=0.,
+        #                                     sparse_inputs=False,
+        #                                     logging=self.logging))
+
+        self.layers.append(GraphConvolution(input_dim=39*2,
+                                            output_dim=39,
+                                            placeholders=self.placeholders,
+                                            act=lambda x : x,
+                                            dropout=0.,
+                                            sparse_inputs=False,
                                             logging=self.logging))
 
 
@@ -206,7 +214,7 @@ class GCN(Model):
         #     layers.append(Dense(input_dim=FLAGS.hidden2,
         #                         output_dim=self.ssl_output_dim,
         #                         placeholders=self.placeholders,
-        #                         act=lambda x: x,
+        #                         act=lambda x : x,
         #                         dropout=0,
         #                         logging=self.logging))
 

@@ -24,13 +24,13 @@ flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc', 'joint_weighted_0_7_0_3_inverse',
                     'Description of the experiment.')
-flags.DEFINE_integer('need_batch', 0, 'Need min-batch or not.')
+flags.DEFINE_integer('need_batch', 1, 'Need min-batch or not.')
 flags.DEFINE_string('device', 'cpu', 'cpu|gpu.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 10001, 'Number of epochs to train.')
-flags.DEFINE_integer('hidden1', 100, 'Number of units in hidden layer 1.')
-flags.DEFINE_integer('hidden2', 50, 'Number of units in hidden layer 2.')
-flags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
+flags.DEFINE_integer('hidden1', 39*2, 'Number of units in hidden layer 1.')
+flags.DEFINE_integer('hidden2', 39, 'Number of units in hidden layer 2.')
+# flags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
 flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training over testing data.')
 flags.DEFINE_integer('embed', 0, '0: No embedding; 1|2|3.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
@@ -59,8 +59,8 @@ else:
 # Define placeholders
 N = get_shape(adj)[0]
 placeholders = {
-    'support': [tf.sparse_placeholder(tf.float32) for _ in range(num_supports)],
-    #'support':None,
+    'support': [tf.sparse_placeholder(tf.float32) for _ in range(
+    num_supports)],
     #'dropout': tf.float32,
     'output_dim': get_shape(y_train),
 }
@@ -125,8 +125,6 @@ dir = prepare_exp_dir(FLAGS)
 
 # Init variables
 sess.run(tf.global_variables_initializer())
-
-#f1_micros, f1_macros = [], []
 
 f1_micros_valid, f1_macros_valid = [], []
 f1_micros_test, f1_macros_test = [], []

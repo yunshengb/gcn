@@ -9,6 +9,7 @@ import sys, os, datetime, collections
 import random
 from math import ceil
 import tensorflow as tf
+import networkx as nx
 from neg_sampling import NegSampler
 
 flags = tf.app.flags
@@ -94,11 +95,15 @@ def load_synthetic_data():
     return load_data_from_adj(adj)
 
 
+G = None
+pr = None
 def load_blog_data():
+    global G, pr
     labels = None
     features = None
     # features = np.load(
-    #     '{}/../data/BlogCatalog-dataset/data/blog_emb_iter_1_p_0.25_q_0.25_walk_40_win_10.npy'.format(
+    #     '{}/../data/BlogCatalog-dataset/data/blog_emb_iter_1_p_0.5_q_0.5_walk_40_win_10.npy'
+    #     ''.format(
     #         current_folder))
     if FLAGS.embed == 0 or FLAGS.embed == 3:
         labels = np.load(
@@ -111,31 +116,95 @@ def load_blog_data():
                 current_folder))
         return load_data_from_adj(adj, labels, features)
 
+    path = '{}/../data/save/{}_neighbor_map.pickle'.format(current_folder,
+                                                        FLAGS.dataset)
+    # dic = load(path)
+    # dic = collections.defaultdict(list)
+    # G = nx.Graph()
+    # print('Loading blog')
+    # with open('{}/../data/BlogCatalog-dataset/data/edges.csv'.format(
+    #         current_folder)) as f:
+    #     for line in f:
+    #         ls = line.rstrip().split(',')
+    #         x = id(ls[0])
+    #         y = id(ls[1])
+    #         G.add_edge(y, x)
+    #         dic[x].append(y)
+    #         dic[y].append(x)
+    # dic = dict(dic)
+    # print(len(G.nodes()), len(G.edges()))
+    # pr = nx.pagerank(G, alpha=0.9)
+    edge_list_path = '{}/../data/BlogCatalog-dataset/data/edges.csv'.format(
+        current_folder)
+    dic = load_adj_list(edge_list_path)
+
+    return load_data_from_adj(dic, labels, features)
+
+
+def load_cora_data():
+    global G, pr
+    labels = None
+    features = None
+    features = np.load(
+        '{}/../data/cora-dataset/data/cora_2nd_100.npy'
+        ''.format(
+            current_folder))
+    if FLAGS.embed == 0 or FLAGS.embed == 3:
+        labels = np.load(
+            '{}/../data/cora-dataset/data/cora_labels.npy'.format(
+                current_folder))
+
+    if not FLAGS.need_batch:
+        print("cora---no batch!!!!!!!!!!!!!!!")
+        adj = np.load(
+            '{}/../data/cora-dataset/data/cora_adj.npy'.format(
+                current_folder))
+        return load_data_from_adj(adj, labels, features)
+
+    path = '{}/../data/save/{}_neighbor_map.pickle'.format(current_folder,
+                                                        FLAGS.dataset)
+    # dic = load(path)
     dic = collections.defaultdict(list)
+    G = nx.Graph()
     print('Loading blog')
-    with open('{}/../data/BlogCatalog-dataset/data/edges.csv'.format(
+    with open('{}/../data/cora-dataset/data/edges.csv'.format(
             current_folder)) as f:
         for line in f:
             ls = line.rstrip().split(',')
             x = id(ls[0])
             y = id(ls[1])
+            G.add_edge(y, x)
             dic[x].append(y)
             dic[y].append(x)
     dic = dict(dic)
-    print('Loaded blog')
+    print(len(G.nodes()), len(G.edges()))
+    pr = nx.pagerank(G, alpha=0.9)
+    # edge_list_path = '{}/../data/cora-dataset/data/edges.csv'.format(
+    #     current_folder)
+    # dic = load_adj_list(edge_list_path)
 
     return load_data_from_adj(dic, labels, features)
 
-
 def load_flickr_data():
-    path = '{}/../data/save/{}_neighbor_map.pickle'.format(current_folder,
+    edge_list_path = '{}/../data/Flickr-dataset/data/edges.csv'.format(
+                current_folder)
+    dic = load_adj_list(edge_list_path)
+    return load_data_from_adj(dic)
+
+
+def id(i):
+    return int(i) - 1
+
+
+def load_adj_list(edge_list_path):
+
+    pickle_path = '{}/../data/save/{}_neighbor_map.pickle'.format(current_folder,
                                                         FLAGS.dataset)
-    dic = load(path)
+    dic = load(pickle_path)
     if not dic:
         dic = collections.defaultdict(list)
-        print('Loading flickr')
-        with open('{}/../data/Flickr-dataset/data/edges.csv'.format(
-                current_folder)) as f:
+        print('Loading adj list')
+        with open(edge_list_path) as f:
             for line in f:
                 ls = line.rstrip().split(',')
                 x = id(ls[0])
@@ -143,13 +212,9 @@ def load_flickr_data():
                 dic[x].append(y)
                 dic[y].append(x)
         dic = dict(dic)
-        print('Loaded flickr')
-        save(path, dic)
-    return load_data_from_adj(dic)
-
-
-def id(i):
-    return int(i) - 1
+        print('Loaded adj list')
+        save(pickle_path, dic)
+    return dic
 
 
 def gen_hyper_neighbor_map(neighbor_map):
@@ -205,6 +270,11 @@ def load_data(dataset_str, embed):
         return load_flickr_data()
     if dataset_str == 'arxiv':
         return load_arxiv_data()
+    #add cora data
+    if dataset_str == 'cora':
+        return load_cora_data()
+
+
     names = ['x', 'y', 'tx', 'ty', 'allx', 'ally', 'graph']
     objects = []
     for i in range(len(names)):
@@ -284,19 +354,6 @@ def proc_labels(labels, remove_self=False):
         zero_diagonal = np.ones(labels.shape)
         np.fill_diagonal(zero_diagonal, 0)
         labels = np.multiply(labels, zero_diagonal)
-    # for i in range(labels.shape[0]):
-    #     # if np.count_nonzero(labels[i]) == 0:
-    #     #     print('@@@@@')
-    #     #     exit(1)
-    #     if labels[i][i] != 0:
-    #         print('#####')
-    #         print(i)
-    #         print(np.count_nonzero(labels[i]))
-    #         #     exit(1)
-    #         # print(np.count_nonzero(labels[i]))
-    # print('Checked#######################')
-    # return sparse_to_tuple(normalize_adj_sym(labels))
-    # return normalize(labels, norm='l1')
     if type(labels) is dict:
         return labels
     else:
@@ -308,18 +365,14 @@ def proc_labels(labels, remove_self=False):
 
 def preprocess_adj(adj):#laplacian
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
-    adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
+    # adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
+    #adj_normalized = normalize(adj_normalized, norm='l1')
     #adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
-    #adj_normalized = normalize_adj_weighted_row(adj, weights=[0.58, 0.42, 0])
-    #                                            inverse=False)
-    # x = np.array(normalize_adj_sym(adj + sp.eye(adj.shape[0])).todense())
-    # y = np.array(normalize_adj_row(adj + sp.eye(adj.shape[0])).todense())
-    # z = np.array(sp.coo_matrix(normalize_adj_2(adj.todense(), weights=[
-    #         0.7, 0.3, 0])).todense())
+    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.5, 0.5, 0],
+                                                inverse=True, sym=True)
     if type(adj_normalized) is tuple:
         return adj_normalized
     return sparse_to_tuple(adj_normalized)
-    # return sparse_to_tuple(sp.eye(adj.shape[0]))
 
 
 def normalize_adj_sym(adj):
@@ -344,9 +397,10 @@ def normalize_adj_row(adj):
     return (d_mat_inv_sqrt.dot(adj).tocoo())
 
 
-def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1], inverse=True):
+def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1], inverse=True,
+                               sym=False):
     if type(adj) is dict:
-        return normalize_adj_weighted_row_from_dict(adj, weights, inverse)
+        return normalize_adj_weighted_row_from_dict(adj, weights, inverse, sym)
 
     # adj is dense.
     def norm(neighbor, d, weight):
@@ -375,69 +429,53 @@ def normalize_adj_weighted_row(adj, weights=[0.7, 0.2, 0.1], inverse=True):
     return (sp.coo_matrix(normalized_adj))
 
 
-def get_norm(neighbor_map, i, inverse, pp=False):
+def get_norm(neighbor_map, i, inverse):
+    n = len(neighbor_map[i])
+    # n = pr[i]
     if inverse:
-        if pp:
-            print('{} {} {}'.format(1, len(neighbor_map[i]) , 1 / len(neighbor_map[i])))
-        return 1 / len(neighbor_map[i])
+        return 1 / n
     else:
-        return len(neighbor_map[i])
+        return n
 
 
 def normalize_adj_weighted_row_from_dict(neighbor_map, weights=[0.7, 0.3, 0],
-                                         inverse=True):
+                                         inverse=True, sym=False):
+    if sym:
+        inverse = False
     print('@@@ normalize_adj_weighted_row_from_dict')
-    path = '{}/../data/save/{}_weighted_row_norm_{}_{}.pickle'.format(
+    path = '{}/../data/save/{}_weighted_row_norm_{}_{}_{}.pickle'.format(
         current_folder,
         FLAGS.dataset,
         str(weights), \
-        inverse)
+        inverse, \
+        sym)
     rtn = load(path)
     if rtn:
-        return rtn
+       return rtn
     N = len(neighbor_map)
     indices = []
     values = []
     shape = np.array([N, N], dtype=np.int64)
     indices += [(i, i) for i in range(N)]
-    values += [weights[0] for i in range(N)]
+    if sym:
+        values += [1/get_norm(neighbor_map, i, inverse) for i in range(N)]
+    else:
+        values += [weights[0] for _ in range(N)]
     for i in range(N):
-        norm = np.sum(
+        norm_tot = np.sum(
             [get_norm(neighbor_map, j, inverse) for j in neighbor_map[i]])
-        if norm == 0:
-            print('{} neighbor {} has norms {}'.format(i, neighbor_map[i], [get_norm(neighbor_map, j, inverse, pp=True) for j in neighbor_map[i]]))
+        norm_i = get_norm(neighbor_map, i, inverse)
         for j in neighbor_map[i]:
             indices.append((i, j))
-            values.append(
-                weights[1] * get_norm(neighbor_map, j, inverse) / norm)
+            if sym:
+                norm_j = get_norm(neighbor_map, j, inverse)
+                values.append(1 / np.sqrt(norm_i*norm_j))
+            else:
+                values.append(
+                    weights[1] * get_norm(neighbor_map, j, inverse) / norm_tot)
     print('@@@ normalize_adj_weighted_row_from_dict done')
     save(path, (indices, values, shape))
     return indices, values, shape
-
-
-def normalize_batch_labels_weighted_row_from_dict(neighbor_map, batch,
-                                                  weights=[0, 1, 0],
-                                                  inverse=False):
-    print('@@@ normalize_batch_labels_weighted_row_from_dict')
-    path = '{}/../data/save/{}_weighted_row_norm_{}_{}_batch_{}.pickle'.format(
-        current_folder,
-        FLAGS.dataset,
-        str(weights), \
-        inverse, len(batch))
-    rtn = load(path)
-    if rtn:
-        return rtn
-    M = len(batch)
-    N = len(neighbor_map)
-    mat = np.zeros((M, N))
-    for i, real_id in enumerate(batch):
-        norm = np.sum([get_norm(neighbor_map, j, inverse) for j in neighbor_map[
-            real_id]])
-        for j in neighbor_map[real_id]:
-            mat[i][j] = weights[1] * get_norm(neighbor_map, j, inverse) / norm
-    print('@@@ normalize_batch_labels_weighted_row_from_dict done')
-    # save(path, mat)
-    return mat
 
 
 def load(fn):

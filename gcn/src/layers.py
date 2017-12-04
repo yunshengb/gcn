@@ -120,7 +120,10 @@ class Dense(Layer):
                 x = tf.nn.dropout(x, 1-self.dropout)
 
         # transform
-        output = dot(x, self.vars['weights'], sparse=self.sparse_inputs)
+        if not self.featureless:
+            output = dot(x, self.vars['weights'], sparse=self.sparse_inputs)
+        else:
+            output = self.vars['weights']
 
         # bias
         if self.bias:
