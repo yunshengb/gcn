@@ -105,6 +105,10 @@ def load_blog_data():
     #     '{}/../data/BlogCatalog-dataset/data/blog_emb_iter_1_p_0.5_q_0.5_walk_40_win_10.npy'
     #     ''.format(
     #         current_folder))
+    # features = np.load(
+    #     '{}/../data/BlogCatalog-dataset/data/gcn_blog_emb_6100.npy'
+    #     ''.format(
+    #         current_folder))
     if FLAGS.embed == 0 or FLAGS.embed == 3:
         labels = np.load(
             '{}/../data/BlogCatalog-dataset/data/blog_labels.npy'.format(
@@ -600,7 +604,7 @@ def generate_batch(neighbor_map, num_neg=5):
     if data_index >= len(neighbor_map):
         data_index = 0
         round += 1
-        shuffle(ids)
+        random.Random(123).shuffle(ids)
     labels = np.concatenate(
         [np.ones((batch_size, 1)), np.zeros((batch_size, num_neg
                                              ))], 1)

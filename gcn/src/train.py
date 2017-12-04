@@ -32,7 +32,7 @@ flags.DEFINE_integer('hidden1', 39*2, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 39, 'Number of units in hidden layer 2.')
 # flags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
 flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training over testing data.')
-flags.DEFINE_integer('embed', 0, '0: No embedding; 1|2|3.')
+flags.DEFINE_integer('embed', 3, '0: No embedding; 1|2|3.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_float('weight_decay', 5e-4,
                    'Weight for L2 loss on embedding matrix.')
@@ -81,8 +81,8 @@ if FLAGS.need_batch and (FLAGS.embed == 2 or FLAGS.embed == 3):
     placeholders['neg_labels'] = tf.placeholder(tf.int32)
     placeholders['usl_labels'] = tf.placeholder(tf.int32, shape=(None,6))
     placeholders['num_data'] = get_shape(adj)[0]
-elif FLAGS.embed == 2:
-    placeholders['labels'] = tf.placeholder(tf.float32, shape=(N, N))
+elif FLAGS.embed == 2 or FLAGS.embed == 3:
+    placeholders['usl_labels'] = tf.placeholder(tf.float32, shape=(N, N))
     placeholders['sims_mask'] = tf.placeholder(tf.float32,
                                                shape=(N, N))
 
@@ -114,10 +114,10 @@ def get_mode(epoch):
     elif FLAGS.embed == 2:
         return 2
     elif FLAGS.embed == 3:
-        if epoch % 2 == 0:
-            return 2
-        else:
+        if epoch % 5 == 0:
             return 0
+        else:
+            return 2
 
 
 # Summary.
@@ -158,8 +158,7 @@ for epoch in range(FLAGS.epochs):
         elif mode == 2:
             fetches = [model.usl_opt_op, model.usl_loss]
     if mode == 0:
-        preds = model.ssl_layers[-1].outputs if FLAGS.embed == 3 else \
-            model.outputs
+        preds = model.ssl_outputs if FLAGS.embed == 3 else model.outputs
         fetches.append(tf.nn.embedding_lookup(preds,
                                               valid_ids))
         fetches.append(tf.nn.embedding_lookup(y_train, valid_ids))

@@ -51,12 +51,8 @@ class Model(object):
         for layer in self.layers:
             call_layer(layer)
         if FLAGS.embed == 3:
-            for layer in self.ssl_layers:
-                hidden = layer(self.activations[-1])
-                self.ssl_outputs = hidden
-            for layer in self.usl_layers:
-                hidden = layer(self.activations[-1])
-                self.usl_outputs = hidden
+            self.ssl_outputs = self.activations[-1]
+            self.usl_outputs = self.usl_layers[0](self.activations[2])
         else:
             self.outputs = self.activations[-1]
 
@@ -163,7 +159,7 @@ class GCN(Model):
     def _build(self):
 
         self.layers.append(GraphConvolution(input_dim=self.input_dim,
-                                            output_dim=39*2,
+                                            output_dim=150,
                                             placeholders=self.placeholders,
                                             act=tf.nn.relu,
                                             dropout=0.,
@@ -171,26 +167,26 @@ class GCN(Model):
                                             featureless=self.inputs is None,
                                             logging=self.logging))
 
-        # self.layers.append(GraphConvolution(input_dim=150,
-        #                                     output_dim=100,
-        #                                     placeholders=self.placeholders,
-        #                                     act=tf.nn.relu,
-        #                                     dropout=0.,
-        #                                     sparse_inputs=False,
-        #                                     logging=self.logging))
-        #
-        # self.layers.append(GraphConvolution(input_dim=100,
-        #                                     output_dim=70,
-        #                                     placeholders=self.placeholders,
-        #                                     act=tf.nn.relu,
-        #                                     dropout=0.,
-        #                                     sparse_inputs=False,
-        #                                     logging=self.logging))
+        self.layers.append(GraphConvolution(input_dim=150,
+                                            output_dim=100,
+                                            placeholders=self.placeholders,
+                                            act=lambda x: x,
+                                            dropout=0.,
+                                            sparse_inputs=False,
+                                            logging=self.logging))
 
-        self.layers.append(GraphConvolution(input_dim=39*2,
+        self.layers.append(GraphConvolution(input_dim=100,
+                                            output_dim=70,
+                                            placeholders=self.placeholders,
+                                            act=tf.nn.relu,
+                                            dropout=0.,
+                                            sparse_inputs=False,
+                                            logging=self.logging))
+
+        self.layers.append(GraphConvolution(input_dim=70,
                                             output_dim=39,
                                             placeholders=self.placeholders,
-                                            act=lambda x : x,
+                                            act=lambda x: x,
                                             dropout=0.,
                                             sparse_inputs=False,
                                             logging=self.logging))
@@ -218,19 +214,19 @@ class GCN(Model):
         #                         dropout=0,
         #                         logging=self.logging))
 
-        # if FLAGS.embed == 2 or FLAGS.embed == 3:
-        #     if FLAGS.embed == 2:
-        #         layers = self.layers
-        #     else:
-        #         self.usl_layers = []
-        #         layers = self.usl_layers
-        #     layers.append(Embedding(input_dim=FLAGS.hidden2,
-        #                             output_dim=self.usl_output_dim,
-        #                             placeholders=self.placeholders,
-        #                             act=lambda x: x,
-        #                             dropout=False,
-        #                             logging=self.logging,
-        #                             model=self))
+        if FLAGS.embed == 2 or FLAGS.embed == 3:
+            if FLAGS.embed == 2:
+                layers = self.layers
+            else:
+                self.usl_layers = []
+                layers = self.usl_layers
+            layers.append(Embedding(input_dim=100,
+                                    output_dim=self.usl_output_dim,
+                                    placeholders=self.placeholders,
+                                    act=lambda x: x,
+                                    dropout=False,
+                                    logging=self.logging,
+                                    model=self))
 
     def predict(self):
         return tf.nn.softmax(self.outputs)
