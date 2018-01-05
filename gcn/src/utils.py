@@ -128,26 +128,36 @@ def load_blog_data():
 
 
 def load_cora_data():
-    global G, pr
     labels = None
     features = None
-    # features = np.load(
-    #     '{}/../data/cora-dataset/data/cora_emb_iter_1_p_0.5_q_0.5_walk_40_win_10.npy'
-    #     ''.format(
-    #         current_folder))
+    if FLAGS.embed == 0:
+        features = np.load(
+            '{}/../exp/gcn_cora_embed_2nd_5_2_2_1_20180104175436/gcn_cora_emb_400.npy'.format(current_folder))
     if FLAGS.embed == 0 or FLAGS.embed == 3:
         labels = np.load(
             '{}/../data/cora-dataset/data/cora_labels.npy'.format(
                 current_folder))
 
-    if not FLAGS.need_batch:
-        print("cora---no batch!!!!!!!!!!!!!!!")
-        adj = np.load(
-            '{}/../data/cora-dataset/data/cora_adj.npy'.format(
-                current_folder))
-        return load_data_from_adj(adj, labels, features)
+    adj = np.load(
+        '{}/../data/cora-dataset/data/cora_adj.npy'.format(
+            current_folder))
+    dic = convert_npy_to_dic(adj)
+    return load_data_from_adj(dic, labels, features)
 
-    return None
+
+
+def convert_npy_to_dic(adj):
+    dic = collections.defaultdict(list)
+    cnt = 0
+    for i in range(len(adj)):
+        for j in range(len(adj[0])):
+            if adj[i][j] == 1 and i != j:
+                cnt += 1
+                dic[i].append(j)
+    dic = dict(dic)
+    print('edges', cnt)
+    return dic
+
 
 def load_flickr_data():
     labels = None
@@ -539,7 +549,8 @@ def construct_feed_dict(adj, features, support, labels, labels_mask,
 
 data_index = 0
 # max_size = 11799765 // 7
-max_size = 667969
+# max_size = 667969
+max_size = 10556
 round = 0
 ids = []
 neg_sampler = NegSampler(num_neg=5)
@@ -567,6 +578,7 @@ def generate_batch(neighbor_map, num_neg=5):
         batch[s:s + len(ns), 0] = id
         pos_labels[s:s + len(ns), 0] = ns
         negs = neg_sampler.get_neg(ns)
+        assert(len(negs)==5)
         if FLAGS.need_second == 1:
             for j in range(len(ns)):
                 sec = random.choice(neighbor_map[random.choice(ns)])
@@ -592,13 +604,9 @@ def generate_batch(neighbor_map, num_neg=5):
     labels = np.zeros((batch_size, labels_col))
     if FLAGS.need_second == 1:
         labels[:, 0] = 0.5
-        labels[:, 1] = 0.25
-        labels[:, 2] = 0.15
+        labels[:, 1] = 0.2
+        labels[:, 2] = 0.2
         labels[:, 3] = 0.1
-        #labels[:, 4] = 0.5/4
-        #labels[:, 5] = 0.1
-        #labels[:, 5] = 0.1 / 3
-        #labels[:, 6] = 0.1 / 3
     else:
         labels[:, 0] = 1
     return batch, pos_labels, neg_labels, labels

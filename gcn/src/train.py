@@ -17,16 +17,16 @@ tf.set_random_seed(seed)
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
+flags.DEFINE_string('dataset', 'cora', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
 flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
-                    'embed_2nd_5_25_15_1_no_check',
+                    'embed_2nd_5_2_2_1',
                     'Description of the experiment.')
 flags.DEFINE_integer('need_batch', 1, 'Need mini-batch or not.')
-flags.DEFINE_string('device', 'gpu', 'cpu|gpu.')
+flags.DEFINE_string('device', 'cpu', 'cpu|gpu.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 10001, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 39*2, 'Number of units in hidden layer 1.')
@@ -44,8 +44,7 @@ flags.DEFINE_integer('early_stopping', 10,
 flags.DEFINE_integer('max_degree', 3, 'Maximum Chebyshev polynomial degree.')
 
 # Load data
-adj, features, y_train, train_mask, valid_ids, test_ids = \
-    load_data(FLAGS.dataset, FLAGS.embed)
+adj, features, y_train, train_mask, valid_ids, test_ids = load_data(FLAGS.dataset, FLAGS.embed)
 
 # Some preprocessing
 if FLAGS.model == 'gcn':
