@@ -39,8 +39,10 @@ class Model(object):
     def build(self):
         """ Wrapper for _build() """
 
-        def call_layer(layer):
+        def call_layer(layer, stop=False):
             hidden = layer(self.activations[-1])
+            if stop:
+                hidden = tf.stop_gradient(hidden)
             self.activations.append(hidden)
 
         with tf.variable_scope(self.name):
@@ -48,12 +50,16 @@ class Model(object):
 
         # Build sequential layer model
         self.activations.append(self.inputs)
-        for layer in self.layers:
-            call_layer(layer)
         if FLAGS.embed == 3:
+            for idx, layer in enumerate(self.layers):
+                call_layer(layer)
+            self.usl_outputs = self.usl_layers[0](self.activations[-1])
+            # Redo for ssl.
+            call_layer(self.ssl_layers[0])
             self.ssl_outputs = self.activations[-1]
-            self.usl_outputs = self.usl_layers[0](self.activations[2])
         else:
+            for layer in self.layers:
+                call_layer(layer)
             self.outputs = self.activations[-1]
 
         # Store model variables for easy access
@@ -64,11 +70,8 @@ class Model(object):
         # Build metrics
         self._loss()
 
-        if FLAGS.embed == 3:
-            self.ssl_opt_op = self.optimizer.minimize(self.ssl_loss)
-            self.usl_opt_op = self.optimizer.minimize(self.usl_loss)
-        else:
-            self.opt_op = self.optimizer.minimize(self.loss)
+
+        self.opt_op = self.optimizer.minimize(self.loss)
 
     def predict(self):
         pass
@@ -126,17 +129,16 @@ class GCN(Model):
         train_mask = self.placeholders.get('train_mask')
         if FLAGS.embed == 3:
             self.ssl_labels = self.placeholders['ssl_labels']
-            ssl_loss = masked_softmax_cross_entropy(self.ssl_outputs,
+            self.ssl_loss = masked_softmax_cross_entropy(self.ssl_outputs,
                                                     self.ssl_labels,
                                                     train_mask,
                                                     model=self)
-            self.ssl_loss = self.loss + ssl_loss
             self.usl_labels = self.placeholders['usl_labels']
-            usl_loss = masked_softmax_cross_entropy(self.usl_outputs,
+            self.usl_loss = masked_softmax_cross_entropy(self.usl_outputs,
                                                     self.usl_labels,
                                                     None,
                                                     model=self)
-            self.usl_loss = self.loss + usl_loss
+            self.loss = self.loss + 2 * self.ssl_loss + self.usl_loss
         elif FLAGS.embed == 0:
             self.ssl_labels = self.placeholders['ssl_labels']
             loss = masked_softmax_cross_entropy(self.outputs,
@@ -158,61 +160,38 @@ class GCN(Model):
 
     def _build(self):
 
-        self.layers.append(GraphConvolution(input_dim=self.input_dim,
-                                            output_dim=150,
-                                            placeholders=self.placeholders,
-                                            act=tf.nn.relu,
-                                            dropout=0.,
-                                            sparse_inputs=False,
-                                            featureless=self.inputs is None,
-                                            logging=self.logging))
-
-        self.layers.append(GraphConvolution(input_dim=150,
-                                            output_dim=100,
-                                            placeholders=self.placeholders,
-                                            act=lambda x: x,
-                                            dropout=0.,
-                                            sparse_inputs=False,
-                                            logging=self.logging))
-
-        self.layers.append(GraphConvolution(input_dim=100,
-                                            output_dim=70,
-                                            placeholders=self.placeholders,
-                                            act=tf.nn.relu,
-                                            dropout=0.,
-                                            sparse_inputs=False,
-                                            logging=self.logging))
-
-        self.layers.append(GraphConvolution(input_dim=70,
-                                            output_dim=39,
-                                            placeholders=self.placeholders,
-                                            act=lambda x: x,
-                                            dropout=0.,
-                                            sparse_inputs=False,
-                                            logging=self.logging))
 
 
-        # self.layers.append(GraphConvolution(input_dim=FLAGS.hidden2,
-        #                                     output_dim=39,
-        #                                     placeholders=self.placeholders,
-        #                                     act=tf.nn.relu,
-        #                                     dropout=0,
-        #                                     logging=self.logging))
+        if FLAGS.embed == 2 or FLAGS.embed == 3:
+            self.layers.append(GraphConvolution(input_dim=self.input_dim,
+                                                output_dim=200,
+                                                placeholders=self.placeholders,
+                                                act=tf.nn.relu,
+                                                dropout=0,
+                                                sparse_inputs=False,
+                                                featureless=self.inputs is None,
+                                                logging=self.logging))
 
+            self.layers.append(GraphConvolution(input_dim=200,
+                                                output_dim=100,
+                                                placeholders=self.placeholders,
+                                                act=lambda x : x,
+                                                dropout=0,
+                                                sparse_inputs=False,
+                                                logging=self.logging))
 
-
-        # if FLAGS.embed == 0 or FLAGS.embed == 3:
-        #     if FLAGS.embed == 0:
-        #         layers = self.layers
-        #     else:
-        #         self.ssl_layers = []
-        #         layers = self.ssl_layers
-        #     layers.append(Dense(input_dim=FLAGS.hidden2,
-        #                         output_dim=self.ssl_output_dim,
-        #                         placeholders=self.placeholders,
-        #                         act=lambda x : x,
-        #                         dropout=0,
-        #                         logging=self.logging))
+        if FLAGS.embed == 0 or FLAGS.embed == 3:
+            if FLAGS.embed == 0:
+                layers = self.layers
+            else:
+                self.ssl_layers = []
+                layers = self.ssl_layers
+            layers.append(Dense(input_dim=100,
+                                output_dim=self.ssl_output_dim,
+                                placeholders=self.placeholders,
+                                act=lambda x : x,
+                                dropout=0,
+                                logging=self.logging))
 
         if FLAGS.embed == 2 or FLAGS.embed == 3:
             if FLAGS.embed == 2:

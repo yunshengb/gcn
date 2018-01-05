@@ -19,21 +19,24 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
-flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
-flags.DEFINE_string('desc', 'joint_weighted_0_7_0_3_inverse',
+flags.DEFINE_string('desc',
+                    'embed_2nd_5_25_15_1_no_check',
                     'Description of the experiment.')
-flags.DEFINE_integer('need_batch', 1, 'Need min-batch or not.')
-flags.DEFINE_string('device', 'cpu', 'cpu|gpu.')
+flags.DEFINE_integer('need_batch', 1, 'Need mini-batch or not.')
+flags.DEFINE_string('device', 'gpu', 'cpu|gpu.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 10001, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 39*2, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 39, 'Number of units in hidden layer 2.')
-# flags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
+# fl32ags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
 flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training over testing data.')
-flags.DEFINE_integer('embed', 3, '0: No embedding; 1|2|3.')
+flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2|3.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
+flags.DEFINE_integer('need_second', 1, 'Need second-order neighbors for '
+                                       'unsupervised learning or not.')
 flags.DEFINE_float('weight_decay', 5e-4,
                    'Weight for L2 loss on embedding matrix.')
 flags.DEFINE_integer('early_stopping', 10,
@@ -55,6 +58,7 @@ elif FLAGS.model == 'gcn_cheby':
     model_func = GCN
 else:
     raise ValueError('Invalid argument for model: ' + str(FLAGS.model))
+adj = proc_neigh(adj)
 
 # Define placeholders
 N = get_shape(adj)[0]
@@ -79,7 +83,9 @@ if FLAGS.need_batch and (FLAGS.embed == 2 or FLAGS.embed == 3):
     placeholders['batch'] = tf.placeholder(tf.int32)
     placeholders['pos_labels'] = tf.placeholder(tf.int32)
     placeholders['neg_labels'] = tf.placeholder(tf.int32)
-    placeholders['usl_labels'] = tf.placeholder(tf.int32, shape=(None,6))
+    placeholders['usl_labels'] = tf.placeholder(tf.float32, shape=(None,
+                                                                   9 if
+                                                                   FLAGS.need_second == 1 else 6))
     placeholders['num_data'] = get_shape(adj)[0]
 elif FLAGS.embed == 2 or FLAGS.embed == 3:
     placeholders['usl_labels'] = tf.placeholder(tf.float32, shape=(N, N))
@@ -106,18 +112,7 @@ else:
 def need_print(epoch=None):
     if FLAGS.debug or not epoch:
         return False
-    return epoch % 50 == 0
-
-def get_mode(epoch):
-    if FLAGS.embed == 0:
-        return 0
-    elif FLAGS.embed == 2:
-        return 2
-    elif FLAGS.embed == 3:
-        if epoch % 5 == 0:
-            return 0
-        else:
-            return 2
+    return epoch % 100 == 0
 
 
 # Summary.
@@ -131,33 +126,27 @@ f1_micros_test, f1_macros_test = [], []
 
 # Train model
 for epoch in range(FLAGS.epochs):
-    mode = get_mode(epoch)
     t = time.time()
     # Construct feed dictionary
     feed_dict = construct_feed_dict(adj, features, support, y_train, train_mask,
-                                    placeholders, mode)
+                                    placeholders)
     #feed_dict.update({placeholders['dropout']: FLAGS.dropout})
 
     if need_print(epoch):
-        if FLAGS.embed > 0:
-            embeddings = model.layers[-1].outputs if FLAGS.embed == 3 else \
-                model.layers[-1].outputs
+        if FLAGS.embed == 2:
+            embeddings = model.usl_layers[0].embeddings if FLAGS.embed == 3 \
+                else \
+                model.layers[-1].embeddings
             print_var(embeddings,
                       'gcn_%s_emb_%s' % (FLAGS.dataset, epoch),
                       dir, sess, feed_dict)
-        print_var(model.loss,
-                  'gcn_%s_loss_%s' % (FLAGS.dataset, epoch), dir,
-                  sess, feed_dict)
+            print_var(model.loss if FLAGS.embed == 2 else model.usl_loss,
+                      'gcn_%s_loss_%s' % (FLAGS.dataset, epoch), dir,
+                      sess, feed_dict)
 
     # Training step
-    if FLAGS.embed == 0 or FLAGS.embed == 2:
-        fetches = [model.opt_op, model.loss]
-    elif FLAGS.embed == 3:
-        if mode == 0:
-            fetches = [model.ssl_opt_op, model.ssl_loss]
-        elif mode == 2:
-            fetches = [model.usl_opt_op, model.usl_loss]
-    if mode == 0:
+    fetches = [model.opt_op, model.loss]
+    if FLAGS.embed == 0 or FLAGS.embed == 3:
         preds = model.ssl_outputs if FLAGS.embed == 3 else model.outputs
         fetches.append(tf.nn.embedding_lookup(preds,
                                               valid_ids))
@@ -165,6 +154,9 @@ for epoch in range(FLAGS.epochs):
         fetches.append(tf.nn.embedding_lookup(preds,
                                               test_ids))
         fetches.append(tf.nn.embedding_lookup(y_train, test_ids))
+    if FLAGS.embed == 3:
+        fetches.append(model.ssl_loss)
+        fetches.append(model.usl_loss)
     outs = sess.run(fetches, feed_dict=feed_dict)
 
     # Print results
@@ -172,7 +164,7 @@ for epoch in range(FLAGS.epochs):
           "{:.5f}".format(outs[1]),
           "time=",
           "{:.5f}".format(time.time() - t))
-    if mode == 0:
+    if FLAGS.embed == 0 or FLAGS.embed == 3:
         def eval_f1(outs, x, y, name):
             y_preds = outs[x]
             y_labels = outs[y]
@@ -189,8 +181,10 @@ for epoch in range(FLAGS.epochs):
 
         eval_f1(outs, 2, 3, 'validation')
         eval_f1(outs, 4, 5, 'testing   ')
-        # print('max f1_micros, max f1_macros', np.max(f1_micros), np.max(
-        #     f1_macros), np.argmax(f1_micros), np.argmax(f1_macros))
+    if FLAGS.embed == 3:
+        print('ssl_loss', outs[-2], 'usl_loss', outs[-1])
+    # else:
+    #     print(outs[-2], outs[-2].shape, outs[-1], outs[-1].shape)
 
 
 

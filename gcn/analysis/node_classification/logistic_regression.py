@@ -18,8 +18,9 @@ c_folder = os.path.dirname(os.path.realpath(__file__))
 # sys.path.insert(0, os.path.join(c_folder, "../../../../liblinear/python"))
 # from liblinearutil import *
 
-GCN_EXP = "gcn_blog_hidden_weighted_adj_alpha_0_7_beta_0_3_inverse_20171115204025"
-GCN_FOLDER = "{}/../../exp/{}/intermediate".format(c_folder, GCN_EXP)
+GCN_EXP = \
+    "gcn_blog_embed_all_2nd_20180104001943/"
+GCN_FOLDER = "{}/../../exp/{}".format(c_folder, GCN_EXP)
 NODE2VEC_FOLDER = "{}/../../../../node2vec/emb".format(c_folder)
 
 
@@ -208,8 +209,9 @@ def run_blog_loss(model):
     if model == "gcn":
         exp = GCN_EXP
         path = GCN_FOLDER
+        print('Finding in', path)
         for file in sort_nicely(glob.glob(path + "/*.npy")):
-            if "loss" in file and "emb" not in file:
+            if "loss" in file:
                 print("*" * 50)
                 print('Processing folder ', GCN_EXP)
                 print('Processing file ', file.split("/")[-1])

@@ -25,22 +25,12 @@ def masked_accuracy(y_pred, y_true):
             max_index = np.argmax(instance_temp)
             instance_temp[max_index] = -sys.maxsize
             binary_pred[index][max_index] = 1
-    # for index in range(y_pred.shape[0]):
-    #     if not (binary_pred[index]==y_true[index]).all():
-    #         print('@@@', index)
-    #         print('binary_pred[index]', binary_pred[index])
-    #         print('y_true[index]', y_true[index])
-    #         exit(1)
     f1_micro = f1_score(y_true, binary_pred, average='micro')
     f1_macro = f1_score(y_true, binary_pred, average='macro')
     return f1_micro, f1_macro
 
 
 def print_mat(model, mat):
-    # zero = tf.constant(0, dtype=tf.float32)
-    # where = tf.not_equal(mat, zero)
-    # result = tf.boolean_mask(mat, where)
-
     result = mat[0:100,0:100]
 
     model.printer = tf.Print(result, [result],

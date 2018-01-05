@@ -12,6 +12,9 @@ from tensorflow.python.ops import math_ops
 from tensorflow.python.ops import nn_ops
 from tensorflow.python.ops import sparse_ops
 
+flags = tf.app.flags
+FLAGS = flags.FLAGS
+
 
 class Model:
     def __init__(self):
@@ -348,8 +351,12 @@ def neg_sampling(input, batch, pos_labels, neg_labels, num_neg=5,
         return tf.concat([tf.nn.embedding_lookup(input, pos_labels),
                           tf.nn.embedding_lookup(input, neg_labels)], 1)
 
+    sims_col = num_neg + 1
+    if FLAGS.need_second == 1:
+        sims_col = 9
+
     sims = tf.reshape(tf.matmul(generate_samples(), generate_batch()), shape=(
-        -1, num_neg + 1))
+        -1, sims_col))
     return sims
 
 

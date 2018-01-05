@@ -204,3 +204,8 @@ with tf.Session() as sess:
     # print('final\n', sess.run(final))
     # print('xx\n', sess.run(xx))
     # print('xx\n', sess.run(xx).shape)
+
+import random
+li = [0, 1, 2, 3, 4]
+for i in range(30):
+    print(random.choice(li))

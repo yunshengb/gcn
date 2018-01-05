@@ -141,8 +141,8 @@ class GraphConvolution(Layer):
         super(GraphConvolution, self).__init__(**kwargs)
 
         if dropout:
-            self.dropout = placeholders['dropout']
-            #self.dropout = 0.1
+            #self.dropout = placeholders['dropout']
+            self.dropout = dropout
         else:
             self.dropout = None
 
