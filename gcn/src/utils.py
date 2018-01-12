@@ -132,7 +132,7 @@ def load_cora_data():
     features = None
     if FLAGS.embed == 0:
         features = np.load(
-            '{}/../exp/gcn_cora_embed_2nd_5_2_2_1_20180104175436/gcn_cora_emb_400.npy'.format(current_folder))
+            '{}/../data/cora-dataset/data/sdne/sdne_cora_100d_embedding.npy'.format(current_folder))
     if FLAGS.embed == 0 or FLAGS.embed == 3:
         labels = np.load(
             '{}/../data/cora-dataset/data/cora_labels.npy'.format(

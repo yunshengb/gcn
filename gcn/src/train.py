@@ -9,6 +9,11 @@ import numpy as np
 from utils import *
 from models import GCN
 
+
+import collections
+from collections import OrderedDict
+import os
+
 # Set random seed
 seed = 123
 np.random.seed(seed)
@@ -19,7 +24,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'cora', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
-flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
@@ -33,7 +38,7 @@ flags.DEFINE_integer('hidden1', 39*2, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 39, 'Number of units in hidden layer 2.')
 # fl32ags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
 flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training over testing data.')
-flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2|3.')
+flags.DEFINE_integer('embed', 0, '0: No embedding; 1|2|3.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_integer('need_second', 1, 'Need second-order neighbors for '
                                        'unsupervised learning or not.')
@@ -123,6 +128,41 @@ sess.run(tf.global_variables_initializer())
 f1_micros_valid, f1_macros_valid = [], []
 f1_micros_test, f1_macros_test = [], []
 
+# create bins for cora:
+#BIN1: degree=1...BIN5: degree=5, BIN6: degree>=6
+current_folder = os.path.dirname(os.path.realpath(__file__))
+data = np.load('{}/../data/cora-dataset/data/cora_adj.npy'.format(current_folder))
+degreeCount = []
+for i in range(data.shape[0]):
+    count = 0
+    for j in range(data.shape[1]):
+        if data[i][j] == 1:
+            count += 1
+    degreeCount.append(count)
+
+dic = collections.defaultdict(list)
+for p in range(len(degreeCount)):
+    dic[degreeCount[p]].append(p)
+dic = dict(dic)
+dic = OrderedDict(sorted(dic.items()))
+#
+binDic = collections.defaultdict(list)
+for k, v in dic.items():
+    if k < 6:
+        binDic[k] = np.append(binDic[k], v)
+    else:
+        binDic[6] = np.append(binDic[6], v)
+binDic = dict(binDic)
+
+#select bin_id
+#select test_ids for this bin
+BIN_ID = 6;
+test_ids_bin = []
+for test_id in test_ids:
+    if test_id in binDic[BIN_ID]:
+        test_ids_bin.append(test_id)
+
+
 # Train model
 for epoch in range(FLAGS.epochs):
     t = time.time()
@@ -143,16 +183,19 @@ for epoch in range(FLAGS.epochs):
                       'gcn_%s_loss_%s' % (FLAGS.dataset, epoch), dir,
                       sess, feed_dict)
 
+
+
     # Training step
     fetches = [model.opt_op, model.loss]
     if FLAGS.embed == 0 or FLAGS.embed == 3:
+
         preds = model.ssl_outputs if FLAGS.embed == 3 else model.outputs
         fetches.append(tf.nn.embedding_lookup(preds,
                                               valid_ids))
         fetches.append(tf.nn.embedding_lookup(y_train, valid_ids))
         fetches.append(tf.nn.embedding_lookup(preds,
-                                              test_ids))
-        fetches.append(tf.nn.embedding_lookup(y_train, test_ids))
+                                              test_ids_bin))
+        fetches.append(tf.nn.embedding_lookup(y_train, test_ids_bin))
     if FLAGS.embed == 3:
         fetches.append(model.ssl_loss)
         fetches.append(model.usl_loss)
