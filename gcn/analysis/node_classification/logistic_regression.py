@@ -19,7 +19,7 @@ c_folder = os.path.dirname(os.path.realpath(__file__))
 # from liblinearutil import *
 
 GCN_EXP = \
-    "gcn_blog_embed_all_2nd_20180104001943/"
+    "gcn_cora_embed_2nd_5_25_25_checknegs_20180107231529/"
 GCN_FOLDER = "{}/../../exp/{}".format(c_folder, GCN_EXP)
 NODE2VEC_FOLDER = "{}/../../../../node2vec/emb".format(c_folder)
 
@@ -179,9 +179,9 @@ def run_blog(model, folder=None):
                 iter = int(file.split('/')[-1].split('_')[-1].split('.')[0])
                 if iter < 1000:
                     continue
-                print("*" * 50)
-                print('Processing folder ', GCN_EXP)
-                print('Processing file ', file.split("/")[-1])
+                #print("*" * 50)
+                #print('Processing folder ', GCN_EXP)
+                #print('Processing file ', file.split("/")[-1])
                 embedding = np.load(file)
                 acc, f1 = run_one_file_blog(embedding, labels)
                 eval[(folder, file)] = [acc, f1]
@@ -212,11 +212,11 @@ def run_blog_loss(model):
         print('Finding in', path)
         for file in sort_nicely(glob.glob(path + "/*.npy")):
             if "loss" in file:
-                print("*" * 50)
-                print('Processing folder ', GCN_EXP)
-                print('Processing file ', file.split("/")[-1])
+                #print("*" * 50)
+                #print(' ', GCN_EXP)
+                #print('Processing file ', file.split("/")[-1])
                 cur_loss = np.load(file)
-                print('loss = ', cur_loss)
+                #print('loss = ', cur_loss)
                 loss[(exp, file)] = float(cur_loss)
     return loss
 
@@ -328,9 +328,9 @@ def run_cora(model, folder=None):
             path = c_folder + "/cora/gcn/{}/intermediate".format(folder)
             for file in sort_nicely(glob.glob(path + "/*.npy")):
                 if "emb" in file and "loss" not in file:
-                    print("*" * 50)
-                    print('Processing folder ', folder)
-                    print('Processing file ', file.split("/")[-1])
+                    #print("*" * 50)
+                    #print('Processing folder ', folder)
+                    #print('Processing file ', file.split("/")[-1])
                     acc, f1 = run_one_file_cora(file, dataset)
                     eval[(folder, file)] = [acc, f1]
 
@@ -357,11 +357,11 @@ def run_cora_loss(model, folder=None):
             path = c_folder + "/cora/gcn/{}/intermediate".format(folder)
             for file in sort_nicely(glob.glob(path + "/*.npy")):
                 if "loss" in file and "emb" not in file:
-                    print("*" * 50)
-                    print('Processing folder ', folder)
-                    print('Processing file ', file.split("/")[-1])
+                    #print("*" * 50)
+                    #print('Processing folder ', folder)
+                    #print('Processing file ', file.split("/")[-1])
                     cur_loss = np.load(file)
-                    print('loss = ', cur_loss)
+                    #print('loss = ', cur_loss)
                     loss[(folder, file)] = float(cur_loss)
     return loss
 

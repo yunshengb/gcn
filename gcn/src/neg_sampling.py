@@ -352,8 +352,8 @@ def neg_sampling(input, batch, pos_labels, neg_labels, num_neg=5,
                           tf.nn.embedding_lookup(input, neg_labels)], 1)
 
     sims_col = num_neg + 1
-    if FLAGS.need_second == 1:
-        sims_col = 9
+    if FLAGS.need_second:
+        sims_col = 8
 
     sims = tf.reshape(tf.matmul(generate_samples(), generate_batch()), shape=(
         -1, sims_col))

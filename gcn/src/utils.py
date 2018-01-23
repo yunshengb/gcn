@@ -83,16 +83,23 @@ def load_synthetic_data():
     #     [1, 0, 0, 1, 1, 0, 0, 0], [0, 1, 1, 0, 0, 1, 0, 0],
     #     [0, 0, 1, 0, 0, 1, 1, 0], [0, 0, 0, 1, 1, 0, 0, 1],
     #     [1, 0, 0, 0, 1, 0, 0, 1], [1, 1, 0, 0, 0, 1, 1, 0]])
-    adj = np.array(
-        [[0, 1, 1, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 0, 0],
-         [1, 0, 0, 1, 0, 0, 1, 0], [0, 1, 1, 0, 1, 0, 0, 0],
-         [0, 1, 0, 1, 0, 1, 1, 0], [0, 1, 0, 0, 1, 0, 0, 1],
-         [0, 0, 1, 0, 1, 0, 0, 1], [1, 0, 0, 0, 0, 1, 1, 0]])
+    # adj = np.array(
+    #     [[0, 1, 1, 0, 0, 0, 0, 1], [1, 0, 0, 1, 1, 1, 0, 0],
+    #      [1, 0, 0, 1, 0, 0, 1, 0], [0, 1, 1, 0, 1, 0, 0, 0],
+    #      [0, 1, 0, 1, 0, 1, 1, 0], [0, 1, 0, 0, 1, 0, 0, 1],
+    #      [0, 0, 1, 0, 1, 0, 0, 1], [1, 0, 0, 0, 0, 1, 1, 0]])
     # adj = np.array(
     #    [[0, 1, 1, 0, 0, 0, 0, 1], [1, 0, 0, 1, 0, 1, 0, 0],
     #     [1, 0, 0, 1, 0, 0, 1, 0], [0, 1, 1, 0, 1, 0, 0, 1],
     #     [0, 0, 0, 1, 0, 1, 1, 0], [0, 1, 0, 0, 1, 0, 0, 1],
     #     [0, 0, 1, 0, 1, 0, 0, 1], [1, 0, 0, 1, 0, 1, 1, 0]])
+
+    # adj = np.array(
+    #     [[0, 0, 1, 0, 0, 0], [0, 0, 1, 0, 0, 0], [1, 1, 0, 1, 0, 0],
+    #      [0, 0, 1, 0, 1, 1], [0, 0, 0, 1, 0, 0],  [0, 0, 0, 1, 0, 0]])
+    adj = np.array(
+        [[0, 1, 1, 0, 0, 0], [1, 0, 1, 0, 0, 0], [1, 1, 0, 1, 0, 0],
+         [0, 0, 1, 0, 1, 1], [0, 0, 0, 1, 0, 0], [0, 0, 0, 1, 0, 0]])
     return load_data_from_adj(adj)
 
 
@@ -103,12 +110,12 @@ def load_blog_data():
     labels = None
     features = None
     if FLAGS.embed == 0:
-        # features = np.load(
-        #     '{}/../data/Flickr-dataset/data/line_flickr_concat_100.npy'.format(
-        #         current_folder))
-
         features = np.load(
-            '{}/../exp/gcn_blog_embed_all_2nd_20180104001943/gcn_blog_emb_2200.npy'.format(current_folder))
+            '{}/../data/BlogCatalog-dataset/data/nlog_netmf_ebd_blog_netmf.npy'.format(
+                current_folder))
+
+        # features = np.load(
+        #     '{}/../exp/gcn_blog_embed_all_2nd_20180104001943/gcn_blog_emb_2200.npy'.format(current_folder))
     if FLAGS.embed == 0 or FLAGS.embed == 3:
         labels = np.load(
             '{}/../data/BlogCatalog-dataset/data/blog_labels.npy'.format(
@@ -132,7 +139,11 @@ def load_cora_data():
     features = None
     if FLAGS.embed == 0:
         features = np.load(
-            '{}/../exp/gcn_cora_embed_2nd_5_2_2_1_20180104175436/gcn_cora_emb_400.npy'.format(current_folder))
+            '{}/../exp/{}.npy'.format(current_folder, FLAGS.eval))
+        #features = np.load(
+        #    '{}/../data/cora-dataset/data/cora_netmf_ebd_cora.npy'.format(current_folder, FLAGS.eval))
+        # file = '{}/../data/cora-dataset/data/SDNE_cora_features_ds1.mat'.format(current_folder)
+        # features = scipy.io.loadmat(file)['features']
     if FLAGS.embed == 0 or FLAGS.embed == 3:
         labels = np.load(
             '{}/../data/cora-dataset/data/cora_labels.npy'.format(
@@ -163,15 +174,15 @@ def load_flickr_data():
     labels = None
     features = None
     if FLAGS.embed == 0:
-        # features = np.load(
-        #     '{}/../data/Flickr-dataset/data/line_flickr_2nd_100.npy'.format(
-        #         current_folder))
-
         features = np.load(
-            '{'
-            '}/../exp/gcn_flickr_embed_3rd_neigh_5_2_2_1_20171220000822/gcn_flickr_emb_10000.npy'
-            ''.format(
+            '{}/../data/Flickr-dataset/data/flickr_netmf_ebd_flickr.npy'.format(
                 current_folder))
+
+        # features = np.load(
+        #     '{'
+        #     '}/../exp/gcn_flickr_embed_3rd_neigh_5_2_2_1_20171220000822/gcn_flickr_emb_10000.npy'
+        #     ''.format(
+        #         current_folder))
 
 
     # file = '{}/../data/Flickr-dataset/data/sdne_flickr_100d' \
@@ -369,7 +380,7 @@ def preprocess_adj(adj):#laplacian
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
     #adj_normalized = normalize_adj_sym(adj + sp.eye(adj.shape[0]))
     # adj_normalized = normalize_adj_row(adj + sp.eye(adj.shape[0]))
-    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.7, 0.3, 0],
+    adj_normalized = normalize_adj_weighted_row(adj, weights=[0.8, 0.2, 0],
                                                 inverse=True, sym=False,
                                                 exp=False)
     if type(adj_normalized) is tuple:
@@ -514,7 +525,7 @@ def get_shape(mat):
 
 
 def construct_feed_dict(adj, features, support, labels, labels_mask,
-                        placeholders):
+                        placeholders, loss):
     """Construct feed dictionary."""
     feed_dict = dict()
     feed_dict.update(
@@ -526,7 +537,7 @@ def construct_feed_dict(adj, features, support, labels, labels_mask,
         feed_dict.update({placeholders['ssl_labels']: labels})
     if FLAGS.need_batch and (FLAGS.embed == 2 or FLAGS.embed == 3):
         # assert (type(labels) is dict)
-        batch, pos_labels, neg_labels, usl_labels = generate_batch(adj)
+        batch, pos_labels, neg_labels, usl_labels = generate_batch(adj, loss)
         # print('batch', batch)
         print('batch', batch.shape)
         # print('pos_labels', pos_labels)
@@ -548,16 +559,17 @@ def construct_feed_dict(adj, features, support, labels, labels_mask,
 
 
 data_index = 0
-# max_size = 11799765 // 7
-# max_size = 667969
-max_size = 10556
+max_size = 11799765 // 7
+#max_size = 667969
+#max_size = 10556
 round = 0
 ids = []
 neg_sampler = NegSampler(num_neg=5)
 
 
-def generate_batch(neighbor_map, num_neg=5):
+def generate_batch(neighbor_map, loss, num_neg=5):
     global data_index, round, ids
+    grow_neighbor(neighbor_map, loss)
     if round == 0:
         ids = list(range(0, len(neighbor_map)))
         neg_sampler.init(len(neighbor_map))
@@ -568,8 +580,8 @@ def generate_batch(neighbor_map, num_neg=5):
     batch = np.zeros(shape=(batch_size, 1))
     pos_labels = np.zeros(shape=(batch_size, 1))
     neg_labels_col = num_neg
-    if FLAGS.need_second == 1:
-        neg_labels_col = 8
+    if FLAGS.need_second:
+        neg_labels_col = 7
     neg_labels = np.zeros(shape=(batch_size, neg_labels_col))
     s = 0
     for i in range(num_data):
@@ -579,15 +591,26 @@ def generate_batch(neighbor_map, num_neg=5):
         pos_labels[s:s + len(ns), 0] = ns
         negs = neg_sampler.get_neg(ns)
         assert(len(negs)==5)
-        if FLAGS.need_second == 1:
+        if FLAGS.need_second:
             for j in range(len(ns)):
                 sec = random.choice(neighbor_map[random.choice(ns)])
                 sec2 = random.choice(neighbor_map[random.choice(ns)])
-                sec3 = random.choice(neighbor_map[random.choice(ns)])
-                #thi = get_neigh(neighbor_map, 3, id)
+                #sec3 = random.choice(neighbor_map[random.choice(ns)])
+                #thi = random.choice(neighbor_map[random.choice(neighbor_map[
+                #random.choice(ns)])])
+                #four = random.choice(neighbor_map[random.choice(neighbor_map[random.choice(neighbor_map[random.choice(ns)])])])
                 #thi2 = get_neigh(neighbor_map, 3, id)
                 #thi3 = get_neigh(neighbor_map, 3, id)
-                neg_labels[s+j] = [sec, sec2, sec3] + negs
+                aux = [sec, sec2]
+                for k, neg in enumerate(negs):
+                    fir = True
+                    while neg in aux:
+                        if not fir:
+                            print('@'*20, k, neg)
+                        neg = random.choice(range(len(neighbor_map)))
+                        negs[k] = neg
+                        fir = False
+                neg_labels[s+j] = aux + negs
         else:
             neg_labels[s:s + len(ns)] = negs
         s += len(ns)
@@ -599,49 +622,62 @@ def generate_batch(neighbor_map, num_neg=5):
         round += 1
         random.Random(123).shuffle(ids)
     labels_col = num_neg + 1
-    if FLAGS.need_second == 1:
-        labels_col = 9
+    if FLAGS.need_second:
+        labels_col = 8
     labels = np.zeros((batch_size, labels_col))
-    if FLAGS.need_second == 1:
+    if FLAGS.need_second:
         labels[:, 0] = 0.5
-        labels[:, 1] = 0.2
-        labels[:, 2] = 0.2
-        labels[:, 3] = 0.1
+        labels[:, 1] = 0.25
+        labels[:, 2] = 0.25
+        #labels[:, 3] = 0.1
     else:
         labels[:, 0] = 1
     return batch, pos_labels, neg_labels, labels
 
 
-
-def proc_neigh(neighbor_map):
-    if type(neighbor_map) is not dict:
-        return neighbor_map
+prev_loss = np.inf
+def grow_neighbor(neighbor_map, loss):
+    global prev_loss
     if FLAGS.need_second != 2:
-        return neighbor_map
-    print('@@@ Generating 2nd order neighbor map')
-    path = '{}/../data/save/{}_2nd_neighbor_map.pickle'.format(
-            current_folder, FLAGS.dataset)
-    rtn = load(path)
-    if rtn:
-        return rtn
-    rtn = {}
-    for id, firs in neighbor_map.items():
-        twos = set()
-        for fir in firs:
-            twos |= set(neighbor_map[fir])
-        twos -= set(firs)
-        rtn[id] = list(twos)
-    save(path, rtn)
-    return rtn
+        return
+    d_loss = prev_loss-loss
+    print('d_loss', d_loss)
+    if not (d_loss > 0 and d_loss < 0.0015 and prev_loss != np.inf):
+        prev_loss = loss
+        return
+    print('*'*100)
+    prev_loss = loss
+    min_d = np.inf
+    max_d = -np.inf
+    for _, ns in neighbor_map.items():
+        min_d = len(ns) if len(ns) < min_d else min_d
+        max_d = len(ns) if len(ns) > max_d else max_d
+    delta_d = max_d - min_d
+    if delta_d < 2:
+        return
+    for i, ns in neighbor_map.items():
+        r = random.uniform(0, 1)
+        if delta_d == 0:
+            print('x')
+        if r >= (len(ns) - min_d) / delta_d:
+            ns.append(get_neigh(neighbor_map, 2, i))
+        #else:
+            #print('#')
+    return
 
 
 def get_neigh(neighbor_map, order, cur):
     firs = neighbor_map[cur]
     if order == 2:
+        attempt = 0
         while True:
             sec = random.choice(neighbor_map[random.choice(firs)])
             if sec != cur and sec not in firs:
                 return sec
+            else:
+                attempt += 1
+                if attempt >= 5:
+                    return sec
     elif order == 3:
         #cnt = 0
         while True:
@@ -660,7 +696,7 @@ def get_size(neighbor_map, data_index, max_size):
     size = 0
     i = get_id(neighbor_map, data_index)
     cnt = 0
-    while size + len(neighbor_map[i]) <= max_size:
+    while size + len(neighbor_map[i]) <= max_size and data_index < len(neighbor_map):
         size += len(neighbor_map[i])
         data_index += 1
         i = get_id(neighbor_map, data_index % len(neighbor_map))
