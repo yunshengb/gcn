@@ -9,6 +9,8 @@ import numpy as np
 from utils import *
 from models import GCN
 
+import os
+
 # Set random seed
 seed = 123
 np.random.seed(seed)
@@ -21,7 +23,7 @@ flags = tf.app.flags
 FLAGS = flags.FLAGS
 flags.DEFINE_string('dataset', 'cora', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
-flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
@@ -39,7 +41,7 @@ flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 100, 'Number of units in hidden layer 2.')
 # fl32ags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
 flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training over testing data.')
-flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2|3.')
+flags.DEFINE_integer('embed', 0, '0: No embedding; 1|2|3.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_integer('need_second', 1, 'Need second-order neighbors for '
                                        'unsupervised learning or not.')
@@ -159,13 +161,11 @@ for epoch in range(FLAGS.epochs):
     # Training step
     fetches = [model.opt_op, model.loss]
     if FLAGS.embed == 0 or FLAGS.embed == 3:
+
         preds = model.ssl_outputs if FLAGS.embed == 3 else model.outputs
         fetches.append(tf.nn.embedding_lookup(preds,
                                               valid_ids))
         fetches.append(tf.nn.embedding_lookup(y_train, valid_ids))
-        fetches.append(tf.nn.embedding_lookup(preds,
-                                              test_ids))
-        fetches.append(tf.nn.embedding_lookup(y_train, test_ids))
     if FLAGS.embed == 3:
         fetches.append(model.ssl_loss)
         fetches.append(model.usl_loss)
