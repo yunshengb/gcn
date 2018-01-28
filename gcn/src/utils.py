@@ -111,8 +111,7 @@ def load_blog_data():
     features = None
     if FLAGS.embed == 0:
         features = np.load(
-            '{}/../data/BlogCatalog-dataset/data/nlog_netmf_ebd_blog_netmf.npy'.format(
-                current_folder))
+            '{}/../exp/{}.npy'.format(current_folder, FLAGS.eval))
 
         # features = np.load(
         #     '{}/../exp/gcn_blog_embed_all_2nd_20180104001943/gcn_blog_emb_2200.npy'.format(current_folder))
@@ -581,7 +580,7 @@ def generate_batch(neighbor_map, loss, num_neg=5):
     pos_labels = np.zeros(shape=(batch_size, 1))
     neg_labels_col = num_neg
     if FLAGS.need_second:
-        neg_labels_col = 7
+        neg_labels_col = 8
     neg_labels = np.zeros(shape=(batch_size, neg_labels_col))
     s = 0
     for i in range(num_data):
@@ -595,13 +594,13 @@ def generate_batch(neighbor_map, loss, num_neg=5):
             for j in range(len(ns)):
                 sec = random.choice(neighbor_map[random.choice(ns)])
                 sec2 = random.choice(neighbor_map[random.choice(ns)])
-                #sec3 = random.choice(neighbor_map[random.choice(ns)])
+                sec3 = random.choice(neighbor_map[random.choice(ns)])
                 #thi = random.choice(neighbor_map[random.choice(neighbor_map[
                 #random.choice(ns)])])
                 #four = random.choice(neighbor_map[random.choice(neighbor_map[random.choice(neighbor_map[random.choice(ns)])])])
                 #thi2 = get_neigh(neighbor_map, 3, id)
                 #thi3 = get_neigh(neighbor_map, 3, id)
-                aux = [sec, sec2]
+                aux = [sec, sec2, sec3]
                 for k, neg in enumerate(negs):
                     fir = True
                     while neg in aux:
@@ -623,21 +622,22 @@ def generate_batch(neighbor_map, loss, num_neg=5):
         random.Random(123).shuffle(ids)
     labels_col = num_neg + 1
     if FLAGS.need_second:
-        labels_col = 8
+        labels_col = 9
     labels = np.zeros((batch_size, labels_col))
     if FLAGS.need_second:
         labels[:, 0] = 0.5
-        labels[:, 1] = 0.25
-        labels[:, 2] = 0.25
-        #labels[:, 3] = 0.1
+        labels[:, 1] = 0.2
+        labels[:, 2] = 0.2
+        labels[:, 3] = 0.1
     else:
         labels[:, 0] = 1
     return batch, pos_labels, neg_labels, labels
 
 
 prev_loss = np.inf
+retain = 0
 def grow_neighbor(neighbor_map, loss):
-    global prev_loss
+    global prev_loss, retain
     if FLAGS.need_second != 2:
         return
     d_loss = prev_loss-loss
@@ -645,7 +645,10 @@ def grow_neighbor(neighbor_map, loss):
     if not (d_loss > 0 and d_loss < 0.0015 and prev_loss != np.inf):
         prev_loss = loss
         return
-    print('*'*100)
+    retain += 1
+    if retain < 550:
+        return
+    retain = 0
     prev_loss = loss
     min_d = np.inf
     max_d = -np.inf
@@ -653,14 +656,15 @@ def grow_neighbor(neighbor_map, loss):
         min_d = len(ns) if len(ns) < min_d else min_d
         max_d = len(ns) if len(ns) > max_d else max_d
     delta_d = max_d - min_d
-    if delta_d < 2:
+    if delta_d == 0:
         return
+    print('*'*100)
     for i, ns in neighbor_map.items():
         r = random.uniform(0, 1)
         if delta_d == 0:
             print('x')
         if r >= (len(ns) - min_d) / delta_d:
-            ns.append(get_neigh(neighbor_map, 2, i))
+            ns.append(get_neigh(neighbor_map, 1, i))
         #else:
             #print('#')
     return
@@ -668,7 +672,9 @@ def grow_neighbor(neighbor_map, loss):
 
 def get_neigh(neighbor_map, order, cur):
     firs = neighbor_map[cur]
-    if order == 2:
+    if order == 1:
+        return random.choice(firs)
+    elif order == 2:
         attempt = 0
         while True:
             sec = random.choice(neighbor_map[random.choice(firs)])

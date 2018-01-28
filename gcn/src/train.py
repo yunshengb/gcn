@@ -9,8 +9,6 @@ import numpy as np
 from utils import *
 from models import GCN
 
-import os
-
 # Set random seed
 seed = 123
 np.random.seed(seed)
@@ -21,17 +19,16 @@ current_folder = os.path.dirname(os.path.realpath(__file__))
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-flags.DEFINE_string('dataset', 'cora', 'Dataset string.')
+flags.DEFINE_string('dataset', 'blog', 'Dataset string.')
 # 'cora', 'citeseer', 'pubmed', 'syn', 'blog', 'flickr', 'arxiv'
-flags.DEFINE_integer('debug', 1, '0: Normal; 1: Debug.')
+flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
-                    'embed_nogrow_2nd',
+                    'embed_grow_2nd_5_2_2_1_retain',
                     'Description of the experiment.')
 flags.DEFINE_string('eval',
-                    'gcn_cora_embed_2nd_5_25_25_checknegs_20180113003432'
-                    '/gcn_cora_emb_35900',
+                    '?/.....',
                     'Name of the experiment to evaluate.')
 flags.DEFINE_integer('need_batch', 1, 'Need mini-batch or not.')
 flags.DEFINE_string('device', 'gpu', 'cpu|gpu.')
@@ -41,9 +38,9 @@ flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 100, 'Number of units in hidden layer 2.')
 # fl32ags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
 flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training over testing data.')
-flags.DEFINE_integer('embed', 0, '0: No embedding; 1|2|3.')
+flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2|3.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
-flags.DEFINE_integer('need_second', 1, 'Need second-order neighbors for '
+flags.DEFINE_integer('need_second', 2, 'Need second-order neighbors for '
                                        'unsupervised learning or not.')
 flags.DEFINE_float('weight_decay', 5e-4,
                    'Weight for L2 loss on embedding matrix.')
@@ -90,7 +87,7 @@ if FLAGS.need_batch and (FLAGS.embed == 2 or FLAGS.embed == 3):
     placeholders['pos_labels'] = tf.placeholder(tf.int32)
     placeholders['neg_labels'] = tf.placeholder(tf.int32)
     placeholders['usl_labels'] = tf.placeholder(tf.float32, shape=(None,
-                                                                   8 if
+                                                                   9 if
                                                                    FLAGS.need_second else 6))
     placeholders['num_data'] = get_shape(adj)[0]
 elif FLAGS.embed == 2 or FLAGS.embed == 3:
@@ -161,11 +158,13 @@ for epoch in range(FLAGS.epochs):
     # Training step
     fetches = [model.opt_op, model.loss]
     if FLAGS.embed == 0 or FLAGS.embed == 3:
-
         preds = model.ssl_outputs if FLAGS.embed == 3 else model.outputs
         fetches.append(tf.nn.embedding_lookup(preds,
                                               valid_ids))
         fetches.append(tf.nn.embedding_lookup(y_train, valid_ids))
+        fetches.append(tf.nn.embedding_lookup(preds,
+                                              test_ids))
+        fetches.append(tf.nn.embedding_lookup(y_train, test_ids))
     if FLAGS.embed == 3:
         fetches.append(model.ssl_loss)
         fetches.append(model.usl_loss)
