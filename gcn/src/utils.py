@@ -261,7 +261,7 @@ def load_data_from_adj(adj, labels=None, features=None):
     #     features = normalize(features, norm='l2')
     train_mask = sample_mask(range(N), N)
     all_ids = list(range(N))
-    random.Random(200).shuffle(all_ids)
+    random.Random(123).shuffle(all_ids)
     valid_ids = all_ids[0:int(ceil(0.1 * N))] # 10%
     test_ids = all_ids[int(ceil(0.1 * N)):int(ceil((1 - FLAGS.train_ratio) *
                                                  N))] # test 1-train_ratio-0.1
@@ -579,9 +579,12 @@ def generate_batch(neighbor_map, loss, num_neg=5):
     batch = np.zeros(shape=(batch_size, 1))
     pos_labels = np.zeros(shape=(batch_size, 1))
     neg_labels_col = num_neg
+    labels_col = num_neg + 1
     if FLAGS.need_second:
         neg_labels_col = 8
+        labels_col = 9
     neg_labels = np.zeros(shape=(batch_size, neg_labels_col))
+    labels = np.zeros((batch_size, labels_col))
     s = 0
     for i in range(num_data):
         id = get_id(neighbor_map, i + data_index)
@@ -610,8 +613,16 @@ def generate_batch(neighbor_map, loss, num_neg=5):
                         negs[k] = neg
                         fir = False
                 neg_labels[s+j] = aux + negs
+                tot_len = 0
+                for k in aux:
+                    tot_len += (1/len(neighbor_map[k]))
+                labels[s+j][0] = 0.5
+                labels[s+j][1] = 0.5*(1/len(neighbor_map[aux[0]]))/tot_len
+                labels[s+j][2] = 0.5*(1/len(neighbor_map[aux[1]]))/tot_len
+                labels[s+j][3] = 0.5*(1/len(neighbor_map[aux[2]]))/tot_len
         else:
             neg_labels[s:s + len(ns)] = negs
+            labels[:, 0] = 1
         s += len(ns)
         neg_round = neg_sampler.increment()
         # print('@@@@@neg_round', neg_round)
@@ -620,17 +631,6 @@ def generate_batch(neighbor_map, loss, num_neg=5):
         data_index = 0
         round += 1
         random.Random(123).shuffle(ids)
-    labels_col = num_neg + 1
-    if FLAGS.need_second:
-        labels_col = 9
-    labels = np.zeros((batch_size, labels_col))
-    if FLAGS.need_second:
-        labels[:, 0] = 0.5
-        labels[:, 1] = 0.2
-        labels[:, 2] = 0.2
-        labels[:, 3] = 0.1
-    else:
-        labels[:, 0] = 1
     return batch, pos_labels, neg_labels, labels
 
 
@@ -646,7 +646,7 @@ def grow_neighbor(neighbor_map, loss):
         prev_loss = loss
         return
     retain += 1
-    if retain < 550:
+    if retain < 150:
         return
     retain = 0
     prev_loss = loss
@@ -695,7 +695,6 @@ def get_neigh(neighbor_map, order, cur):
             else:
                 #print('@')
                 return thi
-
 
 
 def get_size(neighbor_map, data_index, max_size):

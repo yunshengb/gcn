@@ -25,20 +25,20 @@ flags.DEFINE_integer('debug', 0, '0: Normal; 1: Debug.')
 flags.DEFINE_string('model', 'gcn',
                     'Model string.')  # 'gcn', 'gcn_cheby', 'dense'
 flags.DEFINE_string('desc',
-                    'embed_grow_2nd_5_2_2_1_retain',
+                    'embed_grow_2nd_5_inv_retain',
                     'Description of the experiment.')
 flags.DEFINE_string('eval',
                     '?/.....',
                     'Name of the experiment to evaluate.')
 flags.DEFINE_integer('need_batch', 1, 'Need mini-batch or not.')
-flags.DEFINE_string('device', 'gpu', 'cpu|gpu.')
+flags.DEFINE_string('device', 'cpu', 'cpu|gpu.')
 flags.DEFINE_float('learning_rate', 0.01, 'Initial learning rate.')
 flags.DEFINE_integer('epochs', 10001, 'Number of epochs to train.')
 flags.DEFINE_integer('hidden1', 200, 'Number of units in hidden layer 1.')
 flags.DEFINE_integer('hidden2', 100, 'Number of units in hidden layer 2.')
 # fl32ags.DEFINE_integer('hidden3', 50, 'Number of units in hidden layer 3.')
-flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training over testing data.')
-flags.DEFINE_integer('embed', 2, '0: No embedding; 1|2|3.')
+flags.DEFINE_float('train_ratio', 0.1, 'Ratio of training data.')
+flags.DEFINE_integer('embed', 2, '0 or 2.')
 flags.DEFINE_float('dropout', 0.5, 'Dropout rate (1 - keep probability).')
 flags.DEFINE_integer('need_second', 2, 'Need second-order neighbors for '
                                        'unsupervised learning or not.')
@@ -195,7 +195,7 @@ for epoch in range(FLAGS.epochs):
                 f1_macro_max = max(f1_macro_max, f1_macro)
                 print('f1_micro_max', f1_micro_max, 'f1_macro_max',
                       f1_macro_max)
-                np.save('{}/../exp/{}_result'.format(current_folder, FLAGS.eval), (f1_micro_max, f1_macro_max))
+                np.save('{}/../exp/{}_result_{}'.format(current_folder, FLAGS.eval, FLAGS.train_ratio), (f1_micro_max, f1_macro_max))
 
 
         eval_f1(outs, 2, 3, 'validation')
